@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ItemRenderer>
+  <Data>
+    <Sprite name="item_Sprite_1" fileName="game/galaxywing.rttex" textureSize="128" frame="1,0"/>
+    <Sprite name="s_sparkle" fileName="game/particles9.rttex" textureSize="32"/>
+    
+    <Animations>
+	  <SpriteAnimation name="be_idle2" playOnAction="IDLE|WALK" sprite="item_Sprite_1" animTime="200" autoPlay="true" isLoop="true">
+        <Frame>1,0</Frame>
+        <Frame>2,0</Frame>
+        <Frame>3,0</Frame>
+        <Frame>2,0</Frame>
+        <Frame>1,0</Frame>
+      </SpriteAnimation>
+      <SpriteAnimation name="wingFlexJump2" playOnAction="JUMP|FALL" sprite="item_Sprite_1" animTime="200" autoPlay="true" isLoop="true">
+		<Frame>0,0</Frame>
+      </SpriteAnimation>
+      <SpriteAnimation name="a_Sparkles" sprite="s_sparkle" animTime="300" autoPlay="true" isLoop="true">
+        <Frame>8,8</Frame>
+        <Frame>9,8</Frame>
+        <Frame>10,8</Frame>
+      </SpriteAnimation>
+    </Animations>
+    
+    <ParticleSystems>
+      <ParticleSystem name="ps_Sparkles">
+        <Emitter>
+          <Set name="offset">0,0</Set>
+          <Set name="offsetFacing">true</Set>
+          <Set name="emissionInterval">0.4</Set>
+          <Set name="infParticles">true</Set>
+          <Set name="infLifeTime">true</Set>
+          <Set name="particlesPerEmission">2</Set>
+          <Set name="particlesToEmit">2</Set>
+        </Emitter>
+        <Particle>
+          <Set name="sprite">s_sparkle</Set>
+          <Set name="relativeToEmitter">true</Set>
+          <Random name="offset" min="-24, -12" max="24, -2" />
+          <Set name="inSpecificOrder">true</Set>
+          <Set name="blendingMode">PREMULTIPLIED_ALPHA</Set>
+          <Curve name="initialAlpha">
+            <KeyFrame>0, 1</KeyFrame>
+            <KeyFrame>0.8, 1</KeyFrame>
+            <KeyFrame>1, 0</KeyFrame>
+          </Curve>
+          <Select name="lifeTime" input="randomNumber">
+            <Item>0.3</Item>
+            <Item>0.6</Item>
+          </Select>
+          <Random name="initialScale" min="0.5" max="0.8" />
+          <Random name="initialAngle" min="0" max="360" />
+        </Particle>
+      </ParticleSystem>
+      <ParticleSystem name="ps_SparklesTrail">
+        <Emitter>
+          <Set name="offset">0,0</Set>
+          <Set name="offsetFacing">true</Set>
+          <Set name="emissionInterval">0.1</Set>
+          <Set name="infParticles">true</Set>
+          <Set name="infLifeTime">true</Set>
+          <Set name="particlesPerEmission">2</Set>
+          <Set name="particlesToEmit">2</Set>
+        </Emitter>
+        <Particle>
+          <Set name="sprite">s_sparkle</Set>
+          <Random name="offset" min="-28, -16" max="28, 0" />
+          <Set name="inSpecificOrder">true</Set>
+          <Set name="blendingMode">PREMULTIPLIED_ALPHA</Set>
+          <Curve name="initialAlpha">
+            <KeyFrame>0, 1</KeyFrame>
+            <KeyFrame>0.8, 1</KeyFrame>
+            <KeyFrame>1, 0</KeyFrame>
+          </Curve>
+
+          <Select name="lifeTime" input="randomNumber">
+            <Item>0.3</Item>
+            <Item>0.6</Item>
+          </Select>
+          <Random name="initialScale" min="0.5" max="0.8" />
+          <Random name="initialAngle" min="0" max="360" />
+        </Particle>
+      </ParticleSystem>
+    </ParticleSystems>
+
+    <RenderOptions>
+      <Default>
+        <Set name="ShouldHover">true</Set>
+        <Set name="UserNameOffset">6</Set>
+      </Default>
+    </RenderOptions>
+    
+  </Data>
+  <RenderRules>
+    <AddClothingParticles>
+      <ParticleSystemUpdate name="ps_Sparkles" />
+      <ParticleSystemUpdate name="ps_SparklesTrail"/>
+    </AddClothingParticles>
+    <RenderBackpack>
+      <SpriteRender name="item_Sprite_1" offset="-8,-34" alignmentLeft="LEFT_CENTER" alignmentRight="RIGHT_CENTER"/>
+	  <SpriteRender name="item_Sprite_1" offset="8,-34" flip="1,0" alignmentLeft="RIGHT_CENTER" alignmentRight="LEFT_CENTER"/>
+      <ParticleSystemRender name="ps_Sparkles" />
+      <ParticleSystemRender name="ps_SparklesTrail"/>
+      <StopIf>
+        <IsZombified>true</IsZombified>
+      </StopIf>
+      <AvatarTransform class="FootPosition">
+        <Set name="foot1dy">0</Set>
+        <Set name="foot2dy">0</Set>
+        <Set name="foot1y">0</Set>
+        <Set name="foot2y">0</Set>
+      </AvatarTransform>
+    </RenderBackpack>
+  </RenderRules>
+</ItemRenderer>

@@ -1,0 +1,163 @@
+<?xml version="1.0"?>
+<ItemRenderer>
+    <Data>
+        <StateMachines>
+			<StateMachine name="Motion1">
+				<States>
+					<State name="OnGround"/>
+					<State name="InAir"/>
+				</States>
+				<Transitions>
+					<Transition to="OnGround" from="InAir">
+						<Condition>
+							<IsVariableBool name="onGround">true</IsVariableBool>
+						</Condition>
+					</Transition>
+					<Transition to="InAir" from="OnGround">
+						<Condition>
+							<IsVariableBool name="onGround">false</IsVariableBool>
+						</Condition>
+					</Transition>
+				</Transitions>
+			</StateMachine>
+			<StateMachine name="Motion2">
+				<States>
+					<State name="Idle"/>
+					<State name="Moving"/>
+				</States>
+				<Transitions>
+					<Transition to="Idle" from="Moving">
+						<Condition>
+							<IsVariableFloat name="speed.length" operator="Less" abs="true">0.1</IsVariableFloat>
+						</Condition>
+					</Transition>
+					<Transition to="Moving" from="Idle">
+						<Condition>
+							<IsVariableFloat name="speed.length" operator="Greater" abs="true">0.1</IsVariableFloat>
+						</Condition>
+					</Transition>
+				</Transitions>
+			</StateMachine>
+			<StateMachine name="Motion3">
+				<States>
+					<State name="Idle"/>
+					<State name="Walk"/>
+					<State name="Jump"/>
+					<State name="Fall"/>
+					<State name="Sleep"/>
+					<State name="Dance"/>
+				</States>
+				<Transitions>
+					<Transition to="Idle" from="Walk|Fall|Sleep|Dance">
+						<Condition type="and">
+							<IsAction>IDLE</IsAction>
+						</Condition>
+					</Transition>
+					<Transition to="Walk" from="Idle|Fall|Sleep|Dance">
+						<Condition>
+							<IsAction>WALK</IsAction>
+						</Condition>
+					</Transition>
+					<Transition to="Jump" from="Idle|Walk">
+						<Condition>
+							<IsAction>JUMP</IsAction>
+						</Condition>
+					</Transition>
+					<Transition to="Fall" from="Jump|Walk|Idle">
+						<Condition>
+							<IsAction>FALL</IsAction>
+						</Condition>
+					</Transition>
+					<Transition to="Sleep" from="Idle|Dance">
+						<Condition>
+							<IsAction>SLEEP</IsAction>
+						</Condition>
+					</Transition>
+					<Transition to="Dance" from="Idle|Sleep">
+						<Condition>
+							<IsAction>DANCE</IsAction>
+						</Condition>
+					</Transition>
+				</Transitions>
+			</StateMachine>
+			<StateMachine name="Action1">
+				<States>
+					<State name="Idle"/>
+					<State name="Punch"/>
+					<State name="ZombiePunch"/>
+				</States>
+				<Transitions>
+					<Transition from="ZombiePunch|Punch" to="Idle" >
+						<Condition>
+							<IsAction operatorType="NotEqual">PUNCH</IsAction>
+						</Condition>
+					</Transition>
+					<Transition from="ZombiePunch|Idle" to="Punch">
+						<Condition type="and">
+							<IsAction>PUNCH</IsAction>
+							<IsZombified>false</IsZombified>
+						</Condition>
+					</Transition>
+					<Transition from="Idle|Punch" to="ZombiePunch">
+						<Condition type="and">
+							<IsAction>PUNCH</IsAction>
+							<IsZombified>true</IsZombified>
+						</Condition>
+					</Transition>
+				</Transitions>
+			</StateMachine>
+		</StateMachines>
+        <Sprite name="bot" fileName="game/Mario.rttex" textureSize="32"/>
+        <Sprite name="punch_bot" fileName="game/Mario.rttex" textureSize="32"/>
+        
+        <Animations>
+            <SpriteAnimation name="bot_idle" isLoop="true" playOnState="Motion3.Idle" sprite="bot" animTime="600">
+              <Frame>0,0</Frame>
+              <Frame>1,0</Frame>
+              <Frame>2,0</Frame>
+              <Frame>3,0</Frame>
+              <Frame>4,0</Frame>
+            </SpriteAnimation>
+			<SpriteAnimation name="bot_walk" isLoop="true" playOnState="Motion2.Moving" sprite="bot" animTime="600">
+		  	<Frame>0,1</Frame>
+              <Frame>1,1</Frame>
+              <Frame>2,1</Frame>
+              <Frame>3,1</Frame>
+              <Frame>4,1</Frame>
+              <Frame>0,2</Frame>
+              <Frame>1,2</Frame>
+              <Frame>2,2</Frame>
+              <Frame>3,2</Frame>
+              <Frame>4,2</Frame>
+			</SpriteAnimation>
+            <SpriteAnimation name="bot_jump" autoPlay="true" isLoop="true" playOnState="Motion3.Jump" sprite="bot" animTime="600">
+              <Frame>2,3</Frame>
+            </SpriteAnimation>
+            <SpriteAnimation name="bot_fall" autoPlay="true" isLoop="true" playOnState="Motion3.Fall" sprite="bot" animTime="600">
+             <Frame>3,3</Frame>
+             <Frame>3,4</Frame>
+             <Frame>2,4</Frame>
+            </SpriteAnimation>
+            <SpriteAnimation name="bot_punch" autoPlay="true" isLoop="true" playOnState="Action1.Punch" sprite="punch_bot" animTime="600">
+              <Frame>0,3</Frame>
+              <Frame>1,3</Frame>
+            </SpriteAnimation>
+        </Animations>
+        
+		<RenderOptions>
+			<Default>
+                <Set name="UserNameOffset">15</Set>
+            </Default>
+		</RenderOptions>
+    </Data>
+
+    <RenderRules>
+		<RenderInFront>
+			<SpriteRender name="punch_bot" offset="0,-16" alignment="DOWN_CENTER" onState="Action1.Punch"/>
+			<StopIf type="and">
+				<IsAction>PUNCH</IsAction>
+			</StopIf>
+			<SpriteRender name="bot" offset="0,-16" alignment="DOWN_CENTER"/>
+		</RenderInFront>
+    </RenderRules>
+</ItemRenderer>
