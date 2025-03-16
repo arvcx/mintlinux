@@ -18,7 +18,7 @@ using json = nlohmann::json;
 #include <random>
 #include <unordered_set>
 #include <mutex>
-#include "../include/fmt/core.h"
+#include <fmt/core.h>
 BYTE* item_data;
 ENetHost* server;
 vector<int> dstone;

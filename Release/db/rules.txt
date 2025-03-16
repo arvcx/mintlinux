@@ -1,0 +1,35 @@
+set_default_color|
+add_label_with_icon|big|`wHelp & Rules|left|18|
+add_spacer|small|
+add_textbox|`wTo keep this place fun we've go some ground rules to check out:|left|
+add_spacer|small|
+add_label_with_icon|small|`wKeep your account secret. Sharing your password will result in stolen items.|left|20|
+add_label_with_icon|small|`wUnprotected items are at risk of being stolen. Use doors, locks, and blocks wisely to protect your items.|left|20|
+add_label_with_icon|small|`wWe cannot return stolen items, so BE CAREFUL!|left|20|
+add_label_with_icon|small|`wBe civil. Bullying, racism, excessive profanity, sexual content, and abusive behavior are not allowed.|left|20|
+add_label_with_icon|small|`wPlayers that are harmful to the community may be banned. This includes account that use lies, fake games, or trickery to mistreat other players.|left|20|
+add_label_with_icon|small|`wPunishment may be applied to alt account as well as any devices and IP addresses used by the affender.|left|20|
+add_label_with_icon|small|`wTrying to get punished or asking for a punishment can earn you a worse punishment.|left|20|
+add_label_with_icon|small|`w''Hacking'' The game - including client-side manipulation, auto-clickers, speed hacks, cloth manipulation, bots, marcroing, Proxy, Game Guardian - will result in a ban|left|20|
+add_label_with_icon|small|`wDon't lie about mods or fake official GrowtopiaVF system messages.|left|20|
+add_label_with_icon|small|`w''Drop Games'' are illegal scams. You can be punished for hosting, playing, advertising or even watching.|left|20|
+add_label_with_icon|small|`wBetting or gambling (asking Players to pay for a change to win something) is not allowed.|left|20|
+add_label_with_icon|small|`wIf you find a world or players name that is in vialation of our roles, message a @Mod. Do not /bc or /sb from an inappropriate world.|left|20|
+add_label_with_icon|small|`w@Moderators are here to enforce the rules. Abusing, spamming or harassing mods will have consequences.|left|20|
+add_label_with_icon|small|`wAccount, locks, or worlds may be deleted after long periods of inactivity.|left|
+add_label_with_icon|small|`wOut of game bullying/selling of GrowtopiaVF Accounts, items or worlds is not allowed and may results in a ban.|left|20|
+add_label_with_icon|small|`wIAP fraud will result in permanent suspension.|left|20|
+add_label_with_icon|small|`wItem function and prices are subject to change without warning.|left|20|
+add_label_with_icon|small|`wYour creations and items could be deleted at any time. We do everything in our power to prevent this, but data loss may happen without warning. Lost items cannot be restored.|left|20|
+add_spacer|small|
+add_label_with_icon|small|`wFor technical support, IAP issues, or to report a problem, please join our Discord:|left|20|
+add_spacer|small|
+add_url_button|comment|`wJoin Discord``|noflags|https://discord.gg/RrvrdnMz2m|Join Discord?|0|0|
+add_spacer|small|
+add_url_button|comment|`wThe Growtopian Code``|noflags|https://discord.gg/RrvrdnMz2m|Do you want to open the Growtopia Forum and read the Growtopian Code?|0|0|
+add_spacer|small|
+add_url_button|comment|`wPrivacy Policy``|noflags|https://discord.gg/RrvrdnMz2m|Do you want to read the Privacy Policy?|0|0|
+add_spacer|small|
+add_url_button|comment|`wTerms Of Service``|noflags|https://discord.gg/RrvrdnMz2m|Do you want to read the Terms of Use?|0|0|
+add_spacer|small|
+add_button|News1|`wI accept these rules!|0|0|

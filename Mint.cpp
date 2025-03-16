@@ -19,7 +19,7 @@
 #include <iostream>
 #include <vector>
 #include <signal.h>
-#include "enet/include/enet.h"
+#include <enet/enet.h>
 #include "include/nlohmann/json.hpp"
 #include "include/proton/rtparam.hpp"
 #include "include/HTTPRequest.hpp"

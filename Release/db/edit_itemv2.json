@@ -1,0 +1,56 @@
+{
+    "items": [
+        {
+            "Bonus": 5,
+            "Desc": "Yep, it's dirt.",
+            "Extra_Drops": [
+                [
+                    242,
+                    2
+                ]
+            ],
+            "Far_Punch": 0,
+            "Gems": 100,
+            "ID": 2,
+            "Item_Price": 0,
+            "Name": "Dirt",
+            "Punch_Hit": 0,
+            "Punch_Id": 0,
+            "Punch_Place": 0,
+            "Xp": 0,
+            "property_blocked": false,
+            "property_gacha": false,
+            "property_unobtainable": false,
+            "property_untradeable": false,
+            "rarity": 1
+        },
+        {
+            "Bonus": 100,
+            "Desc": "This item has no description.",
+            "Extra_Drops": [
+                [
+                    242,
+                    1
+                ],
+                [
+                    8470,
+                    1
+                ]
+            ],
+            "Far_Punch": 0,
+            "Gems": 0,
+            "ID": 9928,
+            "Item_Price": 0,
+            "Name": "Pot O' Gems",
+            "Punch_Hit": 0,
+            "Punch_Id": 0,
+            "Punch_Place": 0,
+            "Xp": 0,
+            "property_blocked": false,
+            "property_gacha": false,
+            "property_unobtainable": false,
+            "property_untradeable": false,
+            "rarity": 420
+        }
+    ]
+}

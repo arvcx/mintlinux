@@ -1,3 +1,0 @@
-/mnt/c/users/lenovo/desktop/crossmint/build/CMakeFiles/CrossMint.dir
-/mnt/c/users/lenovo/desktop/crossmint/build/CMakeFiles/edit_cache.dir
-/mnt/c/users/lenovo/desktop/crossmint/build/CMakeFiles/rebuild_cache.dir
