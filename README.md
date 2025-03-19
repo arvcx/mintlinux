@@ -28,10 +28,10 @@ Follow these steps to install the required dependencies and run the application:
 2. **Install the Library***
 
    ```bash
-   sudo apt install libenet-dev libfmt-dev
+   sudo apt install libenet-dev libfmt-dev nlohmann-json3-dev
    ```
    
-3. ***Run the App***
+3. **Run the app**
 
    ```bash
    cd Release
