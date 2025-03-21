@@ -1,3 +1,0 @@
-/root/mintlinux/build/CMakeFiles/CrossMint.dir
-/root/mintlinux/build/CMakeFiles/edit_cache.dir
-/root/mintlinux/build/CMakeFiles/rebuild_cache.dir
