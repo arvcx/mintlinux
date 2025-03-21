@@ -990,6 +990,7 @@ void Detected() {
 	}
 }
 int main(int argc, char* argv[]) {
+	system("clear");
     server_port = 17091;
     time_t server_up_time = time(nullptr);
     Logger::Info("INFO", "MintPS");
@@ -1032,7 +1033,7 @@ int main(int argc, char* argv[]) {
 				pInfo(peer)->ip = clientConnection;
 				pInfo(peer)->id = peer->connectID;
 				VarList::OnConsoleMessage(peer, "`oConnecting to `2" + server_name + "``...");
-				VarList::OnConsoleMessage(peer, "`oCurrently Ping : `2" + to_string(peer->roundTripTime) + "Ms");
+				VarList::OnConsoleMessage(peer, "`oCurrently Ping : `2" + to_string(peer->roundTripTime) + "ms");
 				break;
 			}
 			case ENET_EVENT_TYPE_RECEIVE: {

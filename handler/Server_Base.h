@@ -2035,7 +2035,7 @@ string replace_str(string& str, const string& from, const string& to) {
 	return str;
 }
 int items_dat() {
-	string n_ = "db/items/items.dat";
+	string n_ = "items.dat";
 	ifstream file(n_, ios::binary | ios::ate);
 	__int64 size = file.tellg(); 
 	if (size == -1) return -1;
