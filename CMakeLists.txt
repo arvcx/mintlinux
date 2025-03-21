@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 
-# Set the project name and version
-project(CrossMint VERSION 1.0 LANGUAGES CXX)
+project(MintServer VERSION 1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -12,14 +11,9 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
-# Add include directories
-include_directories(${PROJECT_SOURCE_DIR}/enet)
-include_directories(${PROJECT_SOURCE_DIR}/include)
-include_directories(${CMAKE_SOURCE_DIR}/handler)
+add_executable(MintServer Mint.cpp)
+target_link_libraries(MintServer enet crypto)
 
-add_executable(CrossMint Mint.cpp)
-target_link_libraries(CrossMint enet)
-
-set_target_properties(CrossMint PROPERTIES
+set_target_properties(MintServer PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Release
 )

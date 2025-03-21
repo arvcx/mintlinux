@@ -1,0 +1,1 @@
+/usr/bin/c++ -O3 -DNDEBUG CMakeFiles/CrossMint.dir/Mint.cpp.o -o /root/mintlinux/Release/CrossMint  -lenet -lcrypto 

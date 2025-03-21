@@ -20,8 +20,8 @@
 #include <vector>
 #include <signal.h>
 #include <enet/enet.h>
-#include "include/nlohmann/json.hpp"
-#include "include/proton/rtparam.hpp"
+#include <nlohmann/json.hpp>
+#include "include/rtparam.hpp"
 #include "include/HTTPRequest.hpp"
 #include "handler/Server_Item.h"
 #include "handler/Server_Base.h"
@@ -30,23 +30,6 @@
 #include "handler/Server_Guilds.h"
 #include "handler/Server_World.h"
 #include "handler/LoginSystem.h"
-#pragma comment(lib, "Ws2_32.lib")
-
-
-#ifdef _WIN32
-BOOL WINAPI ConsoleHandler(DWORD dwType) {
-	switch (dwType) {
-	case CTRL_LOGOFF_EVENT: case CTRL_SHUTDOWN_EVENT: case CTRL_CLOSE_EVENT: {
-		server_::save::trigger(false);
-		return TRUE;
-	}
-	default:
-		break;
-	}
-	return FALSE;
-}
-#endif
-
 
 void loop_worlds() {
 	if (f_saving_ == false) {
@@ -1007,60 +990,12 @@ void Detected() {
 	}
 }
 int main(int argc, char* argv[]) {
-	// _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
-	// SetConsoleTitleA("Administrator: GlobalPS Project Ver 0.1 (C) Vartan");
-	// srand(unsigned int(time(nullptr)));
-	// HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-	// SetConsoleOutputCP(CP_UTF8);
-	// DWORD mode; SMALL_RECT rect;
-	// rect.Left = 0, rect.Top = 0, rect.Right = 120, rect.Bottom = 40;
-	// SetConsoleWindowInfo(hConsole, TRUE, &rect);
-	// GetConsoleMode(hConsole, &mode);
-	// SetConsoleMode(hConsole, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
-	// server_port = 17091;
-	// Server_Security.up_time_ = time(nullptr);
-	// BOOL ret = SetConsoleCtrlHandler(ConsoleHandler, TRUE);
-	// Logger::Info("INFO", "GlobalPS Project 0.1 (C) Vartan");
-	// Logger::Info("INFO", "Source Development By @Tianvan");
-	// Logger::Info("INFO", "Big Thanks to @Tianvan to Develop this Source");
-	// Logger::Info("INFO", "Starting UP Server, This might take a while...");
-	// Logger::Info("INFO", "Try to Initializing server...");
-	// if (init_enet(server_port) == -1) Logger::Info("INFO", "An error occurred while trying to create an ENet server host.");
-	// if (items_dat() == -1) Logger::Info("[ERROR]", "No items.dat found!");
-	// else Logger::Info("INFO", "Succesfully loaded Items.dat | Version: 19 | Hash: " + to_string(item_hash) + " | Total Items: " + setGems(items.size()) + "");
-	// server_::load::guild();
-	// server_::load::config();
-	// server_::load::item_price();
-	// server_::load::server_event();
-	// Threads.emplace_back(std::thread(Detected));
-	// Threads.emplace_back(std::thread(server_::save::all));
-	// Logger::Info("INFO", "Database Server has been running successfully");
-	// ENetEvent event;
-	    #ifdef _WIN32
-        _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
-        SetConsoleTitleA("Administrator: GlobalPS Project Ver 0.1 (C) Vartan");
-        srand(unsigned int(time(nullptr)));
-        
-        HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-        SetConsoleOutputCP(CP_UTF8);
-        
-        DWORD mode; 
-        SMALL_RECT rect;
-        rect.Left = 0; rect.Top = 0; rect.Right = 120; rect.Bottom = 40;
-        
-        SetConsoleWindowInfo(hConsole, TRUE, &rect);
-        GetConsoleMode(hConsole, &mode);
-        SetConsoleMode(hConsole, mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
-    #endif
-
     server_port = 17091;
     time_t server_up_time = time(nullptr);
-    Logger::Info("INFO", "GlobalPS Project 0.1 (C) Vartan");
-    Logger::Info("INFO", "Source Development By @Tianvan");
-    Logger::Info("INFO", "Big Thanks to @Tianvan to Develop this Source");
-    Logger::Info("INFO", "Starting UP Server, This might take a while...");
+    Logger::Info("INFO", "MintPS");
+    Logger::Info("INFO", "Remaked by ocalith and converting all to linux");
     Logger::Info("INFO", "Try to Initializing server...");
-    
+
     if (init_enet(server_port) == -1) {
         Logger::Info("INFO", "An error occurred while trying to create an ENet server host.");
     }
@@ -1068,7 +1003,7 @@ int main(int argc, char* argv[]) {
     if (items_dat() == -1) {
         Logger::Info("[ERROR]", "No items.dat found!");
     } else {
-        Logger::Info("INFO", "Successfully loaded Items.dat | Version: 19 | Hash: " + to_string(item_hash) + " | Total Items: " + to_string(10) + "");
+        Logger::Info("INFO", "Successfully loaded Items.dat | Version: 19 | Hash: " + to_string(item_hash) + " | Total Items: " + setGems(items.size()) + "");
     }
 
     server_::load::guild();
