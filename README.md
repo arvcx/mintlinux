@@ -1,23 +1,12 @@
-# 🚀 MintServer on Linux
+# 🚀 CrossMint on Linux
 
-A lightweight server solution built with performance in mind.  
-This guide explains how to set up and run **MintServer** on a modern Linux system (we recommend using the latest Debian, Ubuntu, CentOS, or AlmaLinux).
-
----
+A lightweight Growtopia Private Server solution built with performance in mind.
+This guide explains how to set up and run **CrossMint** on a modern Linux system (we recommend using the latest Debian, Ubuntu, CentOS, or AlmaLinux).
 
 ## Prerequisites
-
-- A clean installation of [Debian](https://www.debian.org/), [Ubuntu](https://ubuntu.com/), [CentOS](https://www.centos.org/), or [AlmaLinux](https://almalinux.org/)
-- Sudo or root privileges
-- Basic knowledge of using the terminal
-
----
-
-## Description
-
-MintServer is a high-performance, lightweight server solution designed for modern Linux systems. It is optimized for speed and efficiency, making it an ideal choice for developers and system administrators looking for a reliable server setup.
-
----
+- 🧹 A clean installation of [Debian](https://www.debian.org/), [Ubuntu](https://ubuntu.com/), [CentOS](https://www.centos.org/), or [AlmaLinux](https://almalinux.org/)
+- 🔑 Sudo or root privileges
+- 🧠 Basic knowledge of using the terminal
 
 ## Setup Instructions
 
@@ -43,7 +32,7 @@ Follow these steps to install the required dependencies and run the application 
 
    ```bash
    cd Release
-   ./MintServer
+   ./CrossMint
    ```
 
 ### 🐱‍💻 CentOS/AlmaLinux
@@ -58,20 +47,20 @@ Follow these steps to install the required dependencies and run the application 
    sudo yum update && sudo yum upgrade
    ```
 
-2. **Install the Libraries**
+2. **Install the Library**
 
    ```bash
    sudo yum install epel-release
    sudo yum install enet-devel fmt-devel nlohmann-json-devel
    ```
 
-3. **Run the App**
+3. **Run the app**
 
    ```bash
    cd Release
    ./MintServer
    ```
 
----
+--- 
 
-Enjoy your high-performance server setup with MintServer! 🎉
+Enjoy your high-performance server setup with CrossMint! 🎉
