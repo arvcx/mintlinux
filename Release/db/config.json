@@ -1,8 +1,11 @@
 {
+	"server_ip":"127.0.0.1",
+	"osm_url": "www.growtopia1.com",
+	"osm_path": "0.0.0.0/cache/",
 	"server_name":"Mint",
 	"discord_url":"https://discord.gg/growtopia",
 	"web_url":"https://growtopiagame.com/",
-	"port": 17091,
+	"port": 47123,
 	"secret_standopowah":false,
 	"deposit_world":"Tester"
 }

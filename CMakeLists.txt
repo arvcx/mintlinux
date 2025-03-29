@@ -12,7 +12,8 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 add_executable(MintServer Mint.cpp)
-target_link_libraries(MintServer enet crypto)
+link_directories(/usr/lib/x86_64-linux-gnu/)
+target_link_libraries(MintServer enet crypto dpp curl)
 
 set_target_properties(MintServer PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Release

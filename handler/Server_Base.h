@@ -19,6 +19,7 @@ using json = nlohmann::json;
 #include <unordered_set>
 #include <mutex>
 #include <fmt/core.h>
+#include <cstring>
 BYTE* item_data;
 ENetHost* server;
 vector<int> dstone;
@@ -2035,28 +2036,29 @@ string replace_str(string& str, const string& from, const string& to) {
 	return str;
 }
 int items_dat() {
-	string n_ = "items.dat";
-	ifstream file(n_, ios::binary | ios::ate);
-	__int64 size = file.tellg(); 
-	if (size == -1) return -1;
-	item_data_size = (int)size;
-	char* data = new char[size];
-	file.seekg(0, ios::beg);
-	file.read((char*)(data), size);
-	item_data = new BYTE[60 + size];
-	int MessageType = 0x4, PacketType = 0x10, NetID = -1, CharState = 0x8;
-	memset(item_data, 0, 60);
-	memcpy(item_data, &MessageType, 4);
-	memcpy(item_data + 4, &PacketType, 4);
-	memcpy(item_data + 8, &NetID, 4);
-	memcpy(item_data + 16, &CharState, 4);
-	memcpy(item_data + 56, &size, 4);
-	file.seekg(0, std::ios::beg);
-	file.read((char*)(item_data + 60), size);
-	item_hash = get_hash((unsigned char*)data, (const int)size);
-	int memPos = 0, itemCount;
-	int16_t itemsdatVersion = 0;
-	memcpy(&itemsdatVersion, data + memPos, 1);
+    string n_ = "items.dat";
+    ifstream file(n_, ios::binary | ios::ate);
+    if (!file.is_open()) return -1;
+    int64_t size = file.tellg();
+    if (size == -1) return -1;
+    item_data_size = static_cast<int>(size);
+    char* data = new char[size];
+    file.seekg(0, ios::beg);
+    file.read((char*)(data), size);
+    item_data = new BYTE[60 + size];
+    int MessageType = 0x4, PacketType = 0x10, NetID = -1, CharState = 0x8;
+    memset(item_data, 0, 60);
+    memcpy(item_data, &MessageType, 4);
+    memcpy(item_data + 4, &PacketType, 4);
+    memcpy(item_data + 8, &NetID, 4);
+    memcpy(item_data + 16, &CharState, 4);
+    memcpy(item_data + 56, &size, 4);
+    file.seekg(0, std::ios::beg);
+    file.read((char*)(item_data + 60), size);
+    item_hash = get_hash((unsigned char*)data, static_cast<int>(size));
+    int memPos = 0, itemCount;
+    int16_t itemsdatVersion = 0;
+    memcpy(&itemsdatVersion, data + memPos, sizeof(int16_t));
 	memPos += 2;
 	memcpy(&itemCount, data + memPos, 4);
 	const string key_ = "PBG892FXX982ABC*";
@@ -2222,6 +2224,7 @@ int items_dat() {
 		if (itemsdatVersion >= 17) memPos += 4;
 		if (itemsdatVersion >= 18) memPos += 4;
 		if (itemsdatVersion >= 19) memPos += 9;
+		if (itemsdatVersion >= 21) memPos += 2;
 		if (i != def.id) {
 			cout << i << endl;
 			return -1;
@@ -3603,6 +3606,7 @@ int items_dat() {
 	sort(lockeitem.begin(), lockeitem.end());
 	return 0;
 }
+
 bool special_char(string str_) {
 	if (str_.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567890") != string::npos) return true;
 	return false;

@@ -202,15 +202,6 @@ CMAKE_STRIP:FILEPATH=/usr/bin/strip
 CMAKE_VERBOSE_MAKEFILE:BOOL=FALSE
 
 //Value Computed by CMake
-CrossMint_BINARY_DIR:STATIC=/root/mintlinux/build
-
-//Value Computed by CMake
-CrossMint_IS_TOP_LEVEL:STATIC=ON
-
-//Value Computed by CMake
-CrossMint_SOURCE_DIR:STATIC=/root/mintlinux
-
-//Value Computed by CMake
 MintServer_BINARY_DIR:STATIC=/root/mintlinux/build
 
 //Value Computed by CMake

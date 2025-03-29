@@ -1,19 +1,13 @@
-﻿#ifdef _WIN32
-    #define _WINSOCK_DEPRECATED_NO_WARNINGS
-    #include <io.h>
-    #define access_func access_func
-	#define localtime_s(t, time) localtime_s(t, time)
-#else
-    #include <unistd.h>
-	#include <cstdint>
-    #define access_func access
-	#define BYTE unsigned char
-	#define __int64 int64_t
-	#define __int32 int32_t
-	#define __int16 int16_t
-	#define __int8 int8_t
-	#define localtime_s(t, time) localtime_r(time, t)
-#endif
+﻿
+#include <unistd.h>
+#include <cstdint>
+#define access_func access
+#define BYTE unsigned char
+#define __int64 int64_t
+#define __int32 int32_t
+#define __int16 int16_t
+#define __int8 int8_t
+#define localtime_s(t, time) localtime_r(time, t)
 #include <string>
 #include <fstream>
 #include <iostream>
@@ -30,993 +24,26 @@
 #include "handler/Server_Guilds.h"
 #include "handler/Server_World.h"
 #include "handler/LoginSystem.h"
+#include "handler/Discord_Handling.h"
+#include "handler/Discordthing.h"
 
-void loop_worlds() {
-	if (f_saving_ == false) {
-		long long ms_time = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
-		if (beach_party_game) {
-			if (last_beach_event != 0 and (last_beach_event - ms_time <= 0 || beach_players.size() == 0)) {
-				string name_ = "BEACHPARTYGAME";
-				vector<BYTE*>blocks;
-				for (int i_ = 0; i_ < change_id_beach.size(); i_++) blocks.push_back(packBlockType(3, 8676, change_id_beach[i_] % 100, change_id_beach[i_] / 100));
-				vector<World>::iterator p = find_if(worlds.begin(), worlds.end(), [name_](const World& a) { return a.name == name_; });
-				if (p != worlds.end()) {
-					World* world_ = &worlds[p - worlds.begin()];
-					for (uint16_t i_ = 4400; i_ < 5300; i_++) if (world_->blocks[i_].fg != 12252)blocks.push_back(packBlockType(3, world_->blocks[i_].fg = 12252, (i_ % 100), (i_ / 100)));
-				}
-				if (beach_players.size() != 0) {
-					gamepacket_t p;
-					p.Insert("OnEndMission");
-					for (ENetPeer* currentPeer = server->peers; currentPeer < &server->peers[server->peerCount]; ++currentPeer) {
-						if (currentPeer->state != ENET_PEER_STATE_CONNECTED or currentPeer->data == NULL or pInfo(currentPeer)->world != "BEACHPARTYGAME") continue;
-						for (auto& b : blocks)send_raw(currentPeer, 4, b, 56, ENET_PACKET_FLAG_RELIABLE);
-						if (find(beach_players.begin(), beach_players.end(), pInfo(currentPeer)->tankIDName) != beach_players.end()) {
-							gamepacket_t p;
-							p.Insert("OnTalkBubble"), p.Insert(pInfo(currentPeer)->netID), p.Insert("The game is over!"), p.Insert(0), p.Insert(1), p.CreatePacket(currentPeer);
-							pInfo(currentPeer)->c_x = 0, pInfo(currentPeer)->c_y = 0;
-							SendRespawn(currentPeer, true, 0, 1);
-							p.CreatePacket(currentPeer);
-						}
-					}
-					beach_players.clear();
-				}
-				else {
-					for (ENetPeer* currentPeer = server->peers; currentPeer < &server->peers[server->peerCount]; ++currentPeer) {
-						if (currentPeer->state != ENET_PEER_STATE_CONNECTED or currentPeer->data == NULL or pInfo(currentPeer)->world != "BEACHPARTYGAME") continue;
-						for (auto& b : blocks)send_raw(currentPeer, 4, b, 56, ENET_PACKET_FLAG_RELIABLE);
-					}
-				}
-				last_beach_event = 0;
-				for (auto& b : blocks) free(b);
-				blocks.clear();
-			}
-		}
-		if (last_time2_ - ms_time <= 0 && Server_Security.restart_server_status) {
-			gamepacket_t p;
-			p.Insert("OnConsoleMessage"), p.Insert("`4Global System Message``: Restarting server for update in `4" + to_string(Server_Security.restart_server_time) + "`` minutes");
-			for (ENetPeer* currentPeer = server->peers; currentPeer < &server->peers[server->peerCount]; ++currentPeer) {
-				if (currentPeer->state != ENET_PEER_STATE_CONNECTED or currentPeer->data == NULL) continue;
-				packet_(currentPeer, "action|play_sfx\nfile|audio/ogg/suspended.ogg\ndelayMS|700");
-				p.CreatePacket(currentPeer);
-			}
-			Server_Security.restart_server_time -= 1;
-			if (Server_Security.restart_server_time == 0) {
-				last_time2_ = ms_time + 10000, Server_Security.restart_server_status_seconds = true, Server_Security.restart_server_status = false;
-				Server_Security.restart_server_time = 50;
-			}
-			else last_time2_ = ms_time + 60000;
-		}
-		if (Server_Security.restart_server_status_seconds && last_time2_ - ms_time <= 0) {
-			bool save_ = false, send_now = false;
-			gamepacket_t p;
-			p.Insert("OnConsoleMessage"), p.Insert("`4Global System Message``: Restarting server for update in `4" + (Server_Security.restart_server_time > 0 ? to_string(Server_Security.restart_server_time) : "ZERO") + "`` seconds" + (Server_Security.restart_server_time > 0 ? "" : "! Should be back up in a minute or so. BYE!") + "");
-			for (ENetPeer* currentPeer = server->peers; currentPeer < &server->peers[server->peerCount]; ++currentPeer) {
-				if (currentPeer->state != ENET_PEER_STATE_CONNECTED or currentPeer->data == NULL) continue;
-				p.CreatePacket(currentPeer);
-				send_now = true;
-			}
-			if (Server_Security.restart_server_time > 0) save_ = false;
-			else save_ = true;
-			last_time2_ = ms_time + 10000;
-			if (save_ && send_now) {
-				Server_Security.restart_server_status_seconds = false;
-				xwhitelist = true;
-				for (ENetPeer* currentPeer = server->peers; currentPeer < &server->peers[server->peerCount]; ++currentPeer) {
-					if (currentPeer->state != ENET_PEER_STATE_CONNECTED or currentPeer->data == NULL) continue;
-					enet_peer_disconnect_now(currentPeer, 0);
-				}
-			}
-			else  Server_Security.restart_server_time -= 10;
-		}
-		if (last_time - ms_time <= 0) {
-			for (ENetPeer* currentPeer = server->peers; currentPeer < &server->peers[server->peerCount]; ++currentPeer) {
-				if (currentPeer->state != ENET_PEER_STATE_CONNECTED or currentPeer->data == NULL) continue;
-				if (not pInfo(currentPeer)->claimed_daily_today and pInfo(currentPeer)->is_day < 32) {
-					if (pInfo(currentPeer)->world != "" and not pInfo(currentPeer)->new_player) dialog::Daily_Login(currentPeer);
-				}
-				/*Daily Login Reset*/
-				if (pInfo(currentPeer)->daily_login_day - time(nullptr) <= 0) {
-					pInfo(currentPeer)->is_day++;
-					pInfo(currentPeer)->claimed_daily_today = false;
-					pInfo(currentPeer)->daily_login_day = time(nullptr) + 86400;
-				}
-				if (daily_current_time - time(nullptr) <= 0 and DailyChallenge == true) {
-					server_::events::DailyChallenges::Wait();
-					for (ENetPeer* cp_ = server->peers; cp_ < &server->peers[server->peerCount]; ++cp_) {
-						if (cp_->state != ENET_PEER_STATE_CONNECTED or cp_->data == NULL) continue;
-						VarList::OnConsoleMessage(cp_, "`2Daily Challenge: `oTime is Up! Figuring out the winners....");
-						if (top_dailyc.size() != 0) VarList::OnConsoleMessage(cp_, "`9Today's winners:", 2000);
-						std::vector<std::pair<long long int, std::string>> top_tiers = top_dailyc;
-						sort(top_tiers.begin(), top_tiers.end());
-						reverse(top_tiers.begin(), top_tiers.end());
-						top_tiers.resize((top_tiers.size() >= 10 ? 10 : top_tiers.size()));
-						for (std::uint8_t i = 0; i < top_tiers.size(); i++) {
-							if (i < 5) VarList::OnConsoleMessage(cp_, "`w#" + to_string(i + 1) + ". `1" + top_tiers[i].second + " ``with " + setGems(top_tiers[i].first) + " Points", 2000);
-						}
-						if (pInfo(cp_)->world != "") Daily_Challenge::DailyChallengeRequest(cp_);
-						VarList::OnConsoleMessage(cp_, "`9Join us in " + Time::Playmod(daily_wait_time - time(nullptr)) + " for another shot at the prize!", 2500);
-					}
-				}
-				if (daily_wait_time - time(nullptr) <= 0 and not DailyChallenge) {
-					for (ENetPeer* cp_ = server->peers; cp_ < &server->peers[server->peerCount]; ++cp_) {
-						if (cp_->state != ENET_PEER_STATE_CONNECTED or cp_->data == NULL) continue;
-						if (pInfo(cp_)->world != "") Daily_Challenge::DailyChallengeRequest(cp_);
-					}
-					server_::events::DailyChallenges::Start();
-				}
-			}
-			if (Honors_Update.last_honors_reset - ms_time <= 0) {
-				top_wls_leaderboard();
-				account_rid_detect.clear();
-				time_t currentTime;
-				time(&currentTime);
-				const auto localTime = localtime(&currentTime);
-				const auto Hour = localTime->tm_hour; const auto Min = localTime->tm_min; const auto Sec = localTime->tm_sec; const auto Year = localTime->tm_year + 1900; const auto Day = localTime->tm_mday; const auto Month = localTime->tm_mon + 1;
-				if (Hour >= 6 and Hour < 15) {
-					DaylightDragon.param1 = 0, DaylightDragon.param2 = 0, DaylightDragon.param3 = 1, DaylightDragon.param4 = 5, DaylightDragon.param5 = 0, DaylightDragon.param6 = 2;
-				}
-				if (Hour >= 15 and Hour < 18) {
-					DaylightDragon.param1 = 1, DaylightDragon.param2 = 0, DaylightDragon.param3 = 1, DaylightDragon.param4 = 5, DaylightDragon.param5 = 0, DaylightDragon.param6 = 0;
-				}
-				if (Hour >= 18 and Hour <= 0 or Hour > 0 and Hour < 6) {
-					DaylightDragon.param1 = 2, DaylightDragon.param2 = 0, DaylightDragon.param3 = 1, DaylightDragon.param4 = 5, DaylightDragon.param5 = 0, DaylightDragon.param6 = 1;
-				}
-				server_::honors::reset();
-				Honors_Update.last_honors_reset = ms_time + 7200000;
-			}
-			if (current_event - time(nullptr) <= 0 && can_event == false) {
-				server_::events::clear();
-			}
-			if (next_event - time(nullptr) <= 0 && can_event == true) {
-				server_::events::start();
-			}
-			if (Crypto_Update.crypto_time - time(nullptr) <= 0) {
-				vector<int> added;
-				janeway_.janeway_item.clear();
-				janeway_.janeway_payout = janeway_.random_janeway_payout[rand() % janeway_.random_janeway_payout.size()];
-				for (int i = 0; i < 5; i++) {
-					int random_item = rand() % janeway_.janeway_items.size();
-					if (find(added.begin(), added.end(), janeway_.janeway_items[random_item].first) == added.end()) {
-						added.push_back(janeway_.janeway_items[random_item].first);
-						janeway_.janeway_item.push_back(make_pair(janeway_.janeway_items[random_item].first, janeway_.janeway_items[random_item].second));
-						janeway_.janeway_item.push_back(make_pair(janeway_.janeway_items[random_item].first + 1, janeway_.janeway_items[random_item].second * 4));
-					}
-				}
-				Crypto_Update.crypto_list.clear();
-				Crypto_Update.crypto_sale_list.clear();
-				Crypto_Update.crypto_list = "\ntext_scaling_string|Crypto Currency|";
-				string info = "";
-				std::ifstream ifs("db/crypto_prices.json");
-				json j = json::parse(ifs);
-				info += "\nBitcoin|" + j["Bitcoin"].get<string>() + "\n";
-				info += "Ethereum|" + j["Ethereum"].get<string>() + "\n";
-				info += "Litecoin|" + j["Litecoin"].get<string>();
-				vector<string> d_ = explode("\n", info);
-				for (int i = 1; i < d_.size(); i++) {
-					string crypto_name = explode("|", d_[i])[0], color = "";
-					int crypto_price = atoi(explode("|", d_[i])[1].c_str()), item_id = 0, crypto_sales = crypto_price * 0.9;
-					for (int i = 0; i < Crypto_Update.crypto.size(); i++) {
-						if (Crypto_Update.crypto[i].first == crypto_name) {
-							if (crypto_price >= Crypto_Update.crypto[i].second) color = "`2rise``";
-							else color = "`4drop``";
-							Crypto_Update.crypto[i].second = crypto_price;
-							Crypto_Update.crypto_sale[i].second = crypto_sales;
-							Crypto_Update.crypto_sale_list += "\nadd_button_with_icon|sell_" + Crypto_Update.crypto[i].first + "|" + Crypto_Update.crypto[i].first + "|staticPurpleFrame|" + to_string(item_crypto(Crypto_Update.crypto[i].first)) + "|" + to_string(crypto_sales) + "|";
-							Crypto_Update.crypto_list += "\nadd_button_with_icon|buy_" + Crypto_Update.crypto[i].first + "|" + Crypto_Update.crypto[i].first + " (" + color + ")|staticYellowFrame|" + to_string(item_crypto(Crypto_Update.crypto[i].first)) + "|" + to_string(crypto_price) + "|";
-						}
-					}
-				}
-				Crypto_Update.crypto_time = time(nullptr) + 6000;
-			}
-			if (World_Stuff.last_world_menu - ms_time <= 0) {
-				World_Stuff.active_world_list.clear();
-				World_Stuff.active_world_list = "";
-				server_::load::config();
-				for (uint8_t i = 0; i < World_Stuff.top_active_worlds.size(); i++) {
-					uint8_t w_cz = 0;
-					for (ENetPeer* currentPeer = server->peers; currentPeer < &server->peers[server->peerCount]; ++currentPeer) {
-						if (currentPeer->state != ENET_PEER_STATE_CONNECTED or currentPeer->data == NULL or pInfo(currentPeer)->world != World_Stuff.top_active_worlds[i].second) continue;
-						w_cz++;
-					}
-					World_Stuff.active_world_list += "\nadd_floater|" + World_Stuff.top_active_worlds[i].second + "|" + to_string(w_cz) + "|0.4" + (i == 0 ? "5" : "2") + "|3529161471";
-				}
-				if (World_Stuff.active_world_list.empty()) {
-					vector<string> active_worlds;
-					for (uint8_t i = 0; i < worlds.size(); i++) {
-						World world_ = worlds[rand() % worlds.size()];
-						if (find(active_worlds.begin(), active_worlds.end(), world_.name) == active_worlds.end()) {
-							World_Stuff.active_world_list += "\nadd_floater|" + world_.name + "|0|0.42|3529161471";
-							active_worlds.push_back(world_.name);
-						}
-					}
-				}
-				if (World_Stuff.active_world_list.empty())World_Stuff.active_world_list = "\nadd_floater|START|0|0.5|3529161471";
-				World_Stuff.top_active_worlds.clear();
-				World_Stuff.last_world_menu = ms_time + 20000;
-			}
-		}
-		if (last_rainbow_reset - ms_time <= 0) {
-			rainbow_color++;
-			if (rainbow_color > 24) rainbow_color = 0;
-			last_rainbow_reset = ms_time + 2000;
-		}
-		if (last_autofarm - ms_time <= 0) {
-			if (last_autofarm - ms_time <= 0) last_autofarm = ms_time + 400;
-			for (ENetPeer* currentPeer = server->peers; currentPeer < &server->peers[server->peerCount]; ++currentPeer) {
-				if (currentPeer->state != ENET_PEER_STATE_CONNECTED || currentPeer->data == NULL || pInfo(currentPeer)->world.empty()) continue;
-				if (pInfo(currentPeer)->cheater_settings & Re_Ps::SETTINGS_0 && pInfo(currentPeer)->disable_cheater == 0) {
-					if (pInfo(currentPeer)->last_used_block != 0 && pInfo(currentPeer)->autofarm_x != -1) {
-						for (int i = 0; i < pInfo(currentPeer)->autofarm_slot; i++) {
-							if (i > 3 and pInfo(currentPeer)->hand != 10384 and pInfo(currentPeer)->hand != 13700 and pInfo(currentPeer)->hand != 9908 and pInfo(currentPeer)->hand != 9906) continue;
-							player_punch(currentPeer, pInfo(currentPeer)->last_used_block, pInfo(currentPeer)->autofarm_x + (pInfo(currentPeer)->backwards ? i * -1 : i), pInfo(currentPeer)->autofarm_y, pInfo(currentPeer)->x, pInfo(currentPeer)->y, true);
-						}
-					}
-				}
-			}
-		}
-		if (last_bot - ms_time <= 0) {
-			for (ENetPeer* cp_ = server->peers; cp_ < &server->peers[server->peerCount]; ++cp_) {
-				if (cp_->state != ENET_PEER_STATE_CONNECTED || cp_->data == NULL || pInfo(cp_)->world.empty()) continue;
-				if (pInfo(cp_)->pet_netID == 0 && pInfo(cp_)->pet_type != -1 && !pInfo(cp_)->world.empty() && pInfo(cp_)->show_pets) {
-					Pet_Ai::Create(cp_);
-				}
-				else if (pInfo(cp_)->pet_netID != 0 && pInfo(cp_)->pet_type != -1 && !pInfo(cp_)->world.empty()) {
-					if (!pInfo(cp_)->pet_ClothesUpdated && pInfo(cp_)->show_pets) {
-						Pet_Ai::Update(cp_, pInfo(cp_)->pet_netID, pInfo(cp_)->pet_level, pInfo(cp_)->master_pet, pInfo(cp_)->active_bluename);
-					}
-				}
-			}
-		}
-		if (last_time - ms_time <= 0) {
-			for (int a = 0; a < World_Stuff.t_worlds.size(); a++) {
-				string name = World_Stuff.t_worlds[a];
-				vector<World>::iterator p = find_if(worlds.begin(), worlds.end(), [name](const World& a) { return a.name == name; });
-				if (p != worlds.end()) {
-					World* world = &worlds[p - worlds.begin()];
-					world->fresh_world = true;
-					if (world->machines.size() == 0 && world->npc.size() == 0 && world->special_event == false) {
-						World_Stuff.t_worlds.erase(World_Stuff.t_worlds.begin() + a);
-						a--;
-						if (get_players_world(world->name) == 0) save_world(world->name, true);
-						continue;
-					}
-					if (world->special_event) {
-						if (world->last_special_event + 30000 < (duration_cast<milliseconds>(system_clock::now().time_since_epoch())).count()) {
-							gamepacket_t p, p2;
-							p.Insert("OnAddNotification"), p.Insert("interface/large/special_event.rttex"), p.Insert("`2" + items[world->special_event_item].event_name + ":`` " + (items[world->special_event_item].event_total == 1 ? "`oTime's up! Nobody found it!``" : "`oTime's up! " + to_string(world->special_event_item_taken) + " of " + to_string(items[world->special_event_item].event_total) + " items found.``") + ""), p.Insert("audio/cumbia_horns.wav"), p.Insert(0);
-							p2.Insert("OnConsoleMessage"), p2.Insert("`2" + items[world->special_event_item].event_name + ":`` " + (items[world->special_event_item].event_total == 1 ? "`oTime's up! Nobody found it!``" : "`oTime's up! " + to_string(world->special_event_item_taken) + " of " + to_string(items[world->special_event_item].event_total) + " items found.``") + "");
-							for (ENetPeer* currentPeer_event = server->peers; currentPeer_event < &server->peers[server->peerCount]; ++currentPeer_event) {
-								if (currentPeer_event->state != ENET_PEER_STATE_CONNECTED or currentPeer_event->data == NULL or pInfo(currentPeer_event)->world != world->name) continue;
-								p.CreatePacket(currentPeer_event), p2.CreatePacket(currentPeer_event);
-								PlayerMoving data_{};
-								for (int i_ = 0; i_ < world->drop_new.size(); i_++) {
-									if (find(world->world_event_items.begin(), world->world_event_items.end(), world->drop_new[i_][0]) != world->world_event_items.end()) {
-										BYTE* raw1_ = PackBlockUpdate(14, 0, 0, 0, 0, 0, 0, 0, world->drop_new[i_][2], 0, 0, 0, 0, 0);
-										for (ENetPeer* currentPeer = server->peers; currentPeer < &server->peers[server->peerCount]; ++currentPeer) {
-											if (currentPeer->state != ENET_PEER_STATE_CONNECTED or currentPeer->data == NULL or pInfo(currentPeer)->world != world->name) continue;
-											send_raw(currentPeer, 4, raw1_, 56, ENET_PACKET_FLAG_RELIABLE);
-										}
-										delete[] raw1_;
-										world->drop_new.erase(world->drop_new.begin() + i_);
-										i_--;
-									}
-								}
-							}
-							world->world_event_items.clear();
-							world->last_special_event = (duration_cast<milliseconds>(system_clock::now().time_since_epoch())).count(), world->special_event_item = 0, world->special_event_item_taken = 0, world->special_event = false;
-						}
-						continue;
-					}
-					for (int i_ = 0; i_ < world->machines.size(); i_++) {
-						WorldMachines* machine = &world->machines[i_];
-						if (world->blocks[machine->x + (machine->y * 100)].pr <= 0 or not world->blocks[machine->x + (machine->y * 100)].enabled or machine->target_item == 0) {
-							if (items[world->blocks[machine->x + (machine->y * 100)].fg].blockType == BlockTypes::AUTO_BLOCK) {
-								world->machines.erase(world->machines.begin() + i_);
-								i_--;
-							}
-							continue;
-						}
-						WorldBlock* itemas = &world->blocks[machine->x + (machine->y * 100)];
-						int ySize = world->blocks.size() / 100, xSize = world->blocks.size() / ySize;
-						if (itemas->pr > 0) {
-							if (machine->last_ - ms_time > 0) break;
-							if (itemas->fg == 6952 or (itemas->fg == 6954 && itemas->build_only == false)) {
-								int itemas_ = (itemas->fg == 6954 ? machine->target_item - 1 : machine->target_item);
-								vector<WorldBlock>::iterator p = find_if(world->blocks.begin(), world->blocks.end(), [&](const WorldBlock& a) { return a.fg == itemas_ or a.bg == itemas_; });
-								if (p != world->blocks.end()) {
-									WorldBlock* block_ = &world->blocks[p - world->blocks.begin()];
-									int size = p - world->blocks.begin(), x_ = size % xSize, y_ = size / xSize;
-									if (items[itemas_].blockType == BlockTypes::BACKGROUND and block_->fg != 0) continue;
-									BYTE* raw1_ = PackBlockUpdate(17, 0x8, x_ * 32 + 16, y_ * 32 + 16, 2, 1, 2, 0, 0, 0, 0, 0, 0, 0);
-									BYTE* raw2_ = PackBlockUpdate(36, 0x8, x_ * 32 + 16, y_ * 32 + 16, 0, 0, 0, 110, 0, 0, 0, 0, 0, 0);
-									for (ENetPeer* currentPeer = server->peers; currentPeer < &server->peers[server->peerCount]; ++currentPeer) {
-										if (currentPeer->state != ENET_PEER_STATE_CONNECTED or currentPeer->data == NULL or pInfo(currentPeer)->world != world->name) continue;
-										send_raw(currentPeer, 4, raw1_, 56, ENET_PACKET_FLAG_RELIABLE);
-										send_raw(currentPeer, 4, raw2_, 56, ENET_PACKET_FLAG_RELIABLE);
-									}
-									delete[] raw1_;
-									delete[] raw2_;
-									itemas->pr--;
-									if (itemas->pr <= 0) {
-										PlayerMoving data_{};
-										data_.packetType = 5, data_.punchX = machine->x, data_.punchY = machine->y, data_.characterState = 0x8;
-										BYTE* raw = packPlayerMoving(&data_, 112 + alloc_(world, itemas));
-										BYTE* blc = raw + 56;
-										form_visual(blc, *itemas, *world, NULL, false);
-										for (ENetPeer* currentPeer = server->peers; currentPeer < &server->peers[server->peerCount]; ++currentPeer) {
-											if (currentPeer->state != ENET_PEER_STATE_CONNECTED or currentPeer->data == NULL) continue;
-											if (pInfo(currentPeer)->world == world->name) {
-												send_raw(currentPeer, 4, raw, 112 + alloc_(world, itemas), ENET_PACKET_FLAG_RELIABLE);
-											}
-										}
-										delete[] raw, blc;
-									}
-									if (block_->hp == -1) {
-										int breakhits = items[itemas_].breakHits;
-										block_->hp = (breakhits == 1 ? breakhits * 3 : breakhits > 3 ? 3 : breakhits);
-										block_->lp = ms_time;
-									}
-									block_->hp -= 1;
-									if (block_->hp == 0) {
-										if (items[itemas_].max_gems != 0) {
-											int maxgems = items[itemas_].max_gems;
-											if (itemas_ == 120) maxgems = 50;
-											int c_ = rand() % (maxgems + 1);
-											if (c_ != 0) {
-												bool no_seed = false, no_gems = false, no_block = false;
-												if (itemas_ == 2242 or itemas_ == 2244 or itemas_ == 2246 or itemas_ == 2248 or itemas_ == 2250 or itemas_ == 542) no_seed = true, no_block = true;
-												else {
-													for (int i_ = 0; i_ < world->drop_new.size(); i_++) {
-														if (abs(world->drop_new[i_][4] - y_ * 32) <= 16 and abs(world->drop_new[i_][3] - x_ * 32) <= 16) {
-															if (world->drop_new[i_][0] == 112 and items[itemas_].rarity < 8) {
-																no_gems = true;
-															}
-															else {
-																no_seed = true, no_block = true;
-															}
-														}
-													}
-												}
-												int chanced = 0;
-												if (thedaytoday == 2) chanced = 5;
-												if (rand() % 100 < 8) {
-													WorldDrop drop_block_{};
-													drop_block_.id = itemas_, drop_block_.count = 1, drop_block_.x = (x_ * 32) + rand() % 17, drop_block_.y = (y_ * 32) + rand() % 17;
-													if (not use_mag(world, drop_block_, x_, y_) and not no_block) {
-														dropas_(world, drop_block_);
-													}
-												}
-												else if (rand() % 100 < (items[itemas_].newdropchance + chanced)) {
-													WorldDrop drop_seed_{};
-													drop_seed_.id = itemas_ + 1, drop_seed_.count = 1, drop_seed_.x = (x_ * 32) + rand() % 17, drop_seed_.y = (y_ * 32) + rand() % 17;
-													if (not use_mag(world, drop_seed_, x_, y_) and not no_seed) {
-														dropas_(world, drop_seed_);
-													}
-												}
-												else if (not no_gems) {
-													drop_rare_item(world, NULL, itemas_, x_, y_, false);
-													gems_(NULL, world, c_, x_ * 32, y_ * 32, itemas_);
-												}
-											}
-										}
-										reset_(block_, x_, y_, world);
-										PlayerMoving data_{};
-										data_.packetType = 5, data_.punchX = x_, data_.punchY = y_, data_.characterState = 0x8;
-										BYTE* raw = packPlayerMoving(&data_, 112 + alloc_(world, block_));
-										BYTE* blc = raw + 56;
-										form_visual(blc, *block_, *world, NULL, false);
-										for (ENetPeer* currentPeer = server->peers; currentPeer < &server->peers[server->peerCount]; ++currentPeer) {
-											if (currentPeer->state != ENET_PEER_STATE_CONNECTED or currentPeer->data == NULL) continue;
-											if (pInfo(currentPeer)->world == world->name) {
-												send_raw(currentPeer, 4, raw, 112 + alloc_(world, block_), ENET_PACKET_FLAG_RELIABLE);
-											}
-										}
-										delete[] raw, blc;
-									}
-									else {
-										BYTE* raw1_ = PackBlockUpdate(0x8, 0x0, x_, y_, 0, 0, 0, -1, 6, x_, y_, 0, 0, 0);
-										for (ENetPeer* currentPeer = server->peers; currentPeer < &server->peers[server->peerCount]; ++currentPeer) {
-											if (currentPeer->state != ENET_PEER_STATE_CONNECTED or currentPeer->data == NULL or pInfo(currentPeer)->world != world->name) continue;
-											send_raw(currentPeer, 4, raw1_, 56, ENET_PACKET_FLAG_RELIABLE);
-										}
-										delete[] raw1_;
-									}
-								}
-							}
-							else if (itemas->fg == 6950 or (itemas->fg == 6954 && itemas->build_only)) {
-								vector<WorldBlock>::iterator p = find_if(world->blocks.begin(), world->blocks.end(), [&](const WorldBlock& a) { return a.fg == machine->target_item; });
-								if (p != world->blocks.end()) {
-									int a_ = p - world->blocks.begin();
-									long long times_ = time(nullptr);
-									uint32_t laikas = uint32_t((times_ - world->blocks[a_].planted <= items[world->blocks[a_].fg].growTime ? times_ - world->blocks[a_].planted : items[world->blocks[a_].fg].growTime));
-									if (items[world->blocks[a_].fg].blockType == BlockTypes::SEED and laikas == items[world->blocks[a_].fg].growTime) {
-										int x_ = a_ % xSize, y_ = a_ / xSize;
-										WorldBlock* block_ = &world->blocks[x_ + (y_ * 100)];
-										int drop_count = items[block_->fg - 1].rarity == 1 ? (items[block_->fg - 1].farmable ? (rand() % 6) + 5 : (rand() % block_->fruit) + 1) : items[block_->fg - 1].farmable ? (rand() % 6) + 4 : (rand() % block_->fruit) + 1;
-										if (harvest_seed(world, block_, x_, y_, drop_count, -1)) {
+void Detected();
+void initializeMint();
 
-										}
-										else if (world->weather == 8 and rand() % 300 < 2) {
-											WorldDrop drop_block_{};
-											drop_block_.id = 3722, drop_block_.count = 1, drop_block_.x = x_ * 32 + rand() % 17, drop_block_.y = y_ * 32 + rand() % 17;
-											dropas_(world, drop_block_);
-											BYTE* raw1_ = PackBlockUpdate(0x11, 0, drop_block_.x, drop_block_.y, 0, 108, 0, 0, 0, 0, 0, 0, 0, 0);
-											for (ENetPeer* currentPeer = server->peers; currentPeer < &server->peers[server->peerCount]; ++currentPeer) {
-												if (currentPeer->state != ENET_PEER_STATE_CONNECTED or currentPeer->data == NULL or pInfo(currentPeer)->world != world->name) continue;
-												send_raw(currentPeer, 4, raw1_, 56, ENET_PACKET_FLAG_RELIABLE);
-											}
-											delete[] raw1_;
-										}
-										if (drop_count != 0) drop_rare_item(world, NULL, machine->target_item - 1, x_, y_, true);
-										BYTE* raw1_ = PackBlockUpdate(17, 0x8, x_ * 32 + 16, y_ * 32 + 16, 2, 1, 2, 0, 0, 0, 0, 0, 0, 0);
-										BYTE* raw2_ = PackBlockUpdate(36, 0x8, x_ * 32 + 16, y_ * 32 + 16, 0, 0, 0, 109, 0, 0, 0, 0, 0, 0);
-										for (ENetPeer* currentPeer = server->peers; currentPeer < &server->peers[server->peerCount]; ++currentPeer) {
-											if (currentPeer->state != ENET_PEER_STATE_CONNECTED or currentPeer->data == NULL or pInfo(currentPeer)->world != world->name) continue;
-											send_raw(currentPeer, 4, raw1_, 56, ENET_PACKET_FLAG_RELIABLE);
-											send_raw(currentPeer, 4, raw2_, 56, ENET_PACKET_FLAG_RELIABLE);
-										}
-										delete[] raw1_;
-										delete[] raw2_;
-										itemas->pr--;
-										if (itemas->pr <= 0) {
-											PlayerMoving data_{};
-											data_.packetType = 5, data_.punchX = machine->x, data_.punchY = machine->y, data_.characterState = 0x8;
-											BYTE* raw = packPlayerMoving(&data_, 112 + alloc_(world, itemas));
-											BYTE* blc = raw + 56;
-											form_visual(blc, *itemas, *world, NULL, false);
-											for (ENetPeer* currentPeer = server->peers; currentPeer < &server->peers[server->peerCount]; ++currentPeer) {
-												if (currentPeer->state != ENET_PEER_STATE_CONNECTED or currentPeer->data == NULL) continue;
-												if (pInfo(currentPeer)->world == world->name) {
-													send_raw(currentPeer, 4, raw, 112 + alloc_(world, itemas), ENET_PACKET_FLAG_RELIABLE);
-												}
-											}
-											delete[] raw, blc;
-										}
-									}
-								}
-							}
-						}
-					}
-					long long time_ = time(nullptr);
-					for (int i_ = 0; i_ < world->npc.size(); i_++) {
-						WorldNPC* npc = &world->npc[i_];
-						if (not npc->enabled) continue;
-						if (npc->last_ - time_ > 0) continue;
-						int active = 0;
-						map<string, vector<WorldNPC>>::iterator it;
-						for (it = active_npc.begin(); it != active_npc.end(); it++) {
-							if (it->first == world->name) {
-								for (int i_ = 0; i_ < it->second.size(); i_++) {
-									if (it->second[i_].uid != -1) active++;
-									if (active > 10) break;
-								}
-								break;
-							}
-						}
-						if (active > 10) continue;
-						npc->last_ = time_ + npc->rate_of_fire;
-						WorldBlock* itemas = &world->blocks[npc->x + (npc->y * 100)];
-						if (not itemas->enabled) continue;
-						switch (itemas->fg) {
-						case 8020: case 4344:
-						{
-							PlayerMoving data_{};
-							data_.packetType = 34;
-							data_.x = static_cast<float>(npc->x) * 32 + 16; //nuo x
-							data_.y = static_cast<float>(npc->y) * 32 + (itemas->fg == 8020 ? 6 : 16); //nuo y
-							data_.XSpeed = static_cast<float>(npc->x) * 32 + 16; // iki x
-							data_.YSpeed = static_cast<float>(npc->y) * 32 + (itemas->fg == 8020 ? 6 : 16); // iki y
-							data_.punchY = npc->projectile_speed;
-							BYTE* raw = packPlayerMoving(&data_);
-							uint16_t uid = (active_npc.find(world->name) != active_npc.end() ? active_npc[world->name].size() : 0);
-							raw[1] = (itemas->fg == 8020 ? 15 : 8);
-							raw[2] = uid; // npc uid turi buti unique
-							raw[3] = 2; // 2 yra spawn o 7 yra despawn
-							memcpy(raw + 40, &npc->kryptis, 4);
-							npc->uid = uid;
-							npc->started_moving = ms_time;
-							if (active_npc.find(world->name) != active_npc.end()) {
-								active_npc[world->name].push_back(*npc);
-							}
-							else {
-								vector<WorldNPC> list_;
-								list_.push_back(*npc);
-								active_npc.insert({ world->name, list_ });
-							}
-							for (ENetPeer* currentPeer = server->peers; currentPeer < &server->peers[server->peerCount]; ++currentPeer) {
-								if (currentPeer->state != ENET_PEER_STATE_CONNECTED or currentPeer->data == NULL) continue;
-								if (pInfo(currentPeer)->world == world->name and pInfo(currentPeer)->x != -1) {
-									send_raw(currentPeer, 4, raw, 56, ENET_PACKET_FLAG_RELIABLE);
-								}
-							}
-							delete[]raw;
-							break;
-						}
-						default:
-						{
-							bool cant_del = false;
-							map<string, vector<WorldNPC>>::iterator it;
-							for (it = active_npc.begin(); it != active_npc.end(); it++) {
-								if (cant_del) break;
-								if (it->first == world->name) {
-									for (int i_ = 0; i_ < it->second.size(); i_++) {
-										WorldNPC* npc_ = &it->second[i_];
-										if (npc->uid == npc_->uid) {
-											cant_del = true;
-											break;
-										}
-									}
-								}
-							}
-							if (not cant_del) {
-								world->npc.erase(world->npc.begin() + i_);
-							}
-							break;
-						}
-						}
-					}
-					map<string, vector<WorldNPC>>::iterator it;
-					for (it = active_npc.begin(); it != active_npc.end(); it++) {
-						if (it->first == world->name) {
-							for (int i_ = 0; i_ < it->second.size(); i_++) {
-								WorldNPC* npc_ = &it->second[i_];
-								if (npc_->uid == -1) continue;
-								WorldBlock* itemas = &world->blocks[npc_->x + (npc_->y * 100)];
-								double per_sekunde_praeina_bloku = (double)npc_->projectile_speed / 32;
-								double praejo_laiko = (double)(ms_time - npc_->started_moving) / 1000;
-								double praejo_distancija = (double)per_sekunde_praeina_bloku * (double)praejo_laiko;
-								double current_x = ((int)npc_->kryptis == 180 ? (((double)npc_->x - (double)praejo_distancija) * 32) + 16 : (((double)npc_->x + (double)praejo_distancija) * 32) + 16);
-								double current_y = (double)npc_->y * 32;
-								if (current_x / 32 < 0 or current_x / 32 >= 100 or current_y / 32 < 0 or current_y / 32 >= 60)
-								{
-									PlayerMoving data_{};
-									data_.packetType = 34;
-									data_.x = (current_x); //nuo x
-									data_.y = (current_y + (npc_->id == 8020 ? 6 : 16)); //nuo y
-									data_.XSpeed = (current_x); // iki x
-									data_.YSpeed = (current_y + (npc_->id == 8020 ? 6 : 16)); // iki y
-									data_.punchY = npc_->projectile_speed;
-									BYTE* raw = packPlayerMoving(&data_);
-									raw[1] = (itemas->fg == 8020 ? 15 : 8);
-									raw[2] = npc_->uid;
-									raw[3] = 7;
-									for (ENetPeer* currentPeer = server->peers; currentPeer < &server->peers[server->peerCount]; ++currentPeer) {
-										if (currentPeer->state != ENET_PEER_STATE_CONNECTED or currentPeer->data == NULL) continue;
-										if (pInfo(currentPeer)->world == world->name and pInfo(currentPeer)->x != -1) {
-											send_raw(currentPeer, 4, raw, 56, ENET_PACKET_FLAG_RELIABLE);
-										}
-									}
-									delete[]raw;
-									npc_->uid = -1;
-									continue;
-								}
-								try {
-									WorldBlock* block_ = &world->blocks[current_x / 32 + (current_y / 32 * 100)];
-									if (items[block_->fg].collisionType == 1 or (current_x / 32) > 100 or (current_x / 32) < 0) {
-										PlayerMoving data_{};
-										data_.packetType = 34;
-										data_.x = (current_x); //nuo x
-										data_.y = (current_y + (npc_->id == 8020 ? 6 : 16)); //nuo y
-										data_.XSpeed = (current_x); // iki x
-										data_.YSpeed = (current_y + (npc_->id == 8020 ? 6 : 16)); // iki y
-										data_.punchY = npc_->projectile_speed;
-										BYTE* raw = packPlayerMoving(&data_);
-										raw[1] = (itemas->fg == 8020 ? 15 : 8);
-										raw[2] = npc_->uid;
-										raw[3] = 7;
-										for (ENetPeer* currentPeer = server->peers; currentPeer < &server->peers[server->peerCount]; ++currentPeer) {
-											if (currentPeer->state != ENET_PEER_STATE_CONNECTED or currentPeer->data == NULL) continue;
-											if (pInfo(currentPeer)->world == world->name and pInfo(currentPeer)->x != -1) {
-												send_raw(currentPeer, 4, raw, 56, ENET_PACKET_FLAG_RELIABLE);
-											}
-										}
-										delete[]raw;
-										npc_->uid = -1;
-									}
-								}
-								catch (out_of_range) {
-									continue;
-								}
-							}
-							break;
-						}
-					}
-				}
-			}
-			for (ENetPeer* currentPeer = server->peers; currentPeer < &server->peers[server->peerCount]; ++currentPeer) {
-				if (currentPeer->state != ENET_PEER_STATE_CONNECTED || currentPeer->data == NULL or pInfo(currentPeer)->tankIDName.empty() or pInfo(currentPeer)->world.empty()) continue;
-				if (pInfo(currentPeer)->hand == 3578 || pInfo(currentPeer)->face == 3576) {
-					if (pInfo(currentPeer)->hand_torch + 60000 < (duration_cast<milliseconds>(system_clock::now().time_since_epoch())).count()) {
-						int got = 0;
-						if (pInfo(currentPeer)->hand == 3578) {
-							if (pInfo(currentPeer)->hand_torch != 0) {
-								visual::modify_inv(currentPeer, 3578, got);
-								if (got - 1 >= 1) {
-									gamepacket_t p;
-									p.Insert("OnTalkBubble"), p.Insert(pInfo(currentPeer)->netID), p.Insert("`4My torch went out, but I have " + to_string(got - 1) + " more!``"), p.Insert(0), p.Insert(0), p.CreatePacket(currentPeer);
-								}
-								visual::modify_inv(currentPeer, 3578, got = -1);
-							}
-						}
-						else if (pInfo(currentPeer)->face == 3576) {
-							visual::modify_inv(currentPeer, 3306, got = -1);
-						}
-						pInfo(currentPeer)->hand_torch = (duration_cast<milliseconds>(system_clock::now().time_since_epoch())).count();
-					}
-				}
-				else if (pInfo(currentPeer)->hand == 2204 or pInfo(currentPeer)->hand == 2558 and pInfo(currentPeer)->x != -1 and pInfo(currentPeer)->y != -1) {
-					if (pInfo(currentPeer)->random_geiger_time < 100) {
-						pInfo(currentPeer)->random_geiger_time++;
-					}
-					else {
-						pInfo(currentPeer)->random_geiger_time = 0;
-						pInfo(currentPeer)->geiger_x = (rand() % 100) * 32;
-						pInfo(currentPeer)->geiger_y = (rand() % 54) * 32;
-					}
-					int hands_ = pInfo(currentPeer)->hand;
-					if (not visual::has_playmod2(pInfo(currentPeer), 10)) {
-						if (pInfo(currentPeer)->geiger_x == -1 and pInfo(currentPeer)->geiger_y == -1) {
-							pInfo(currentPeer)->geiger_x = (rand() % 100) * 32;
-							pInfo(currentPeer)->geiger_y = (rand() % 54) * 32;
-						}
-						int a_ = pInfo(currentPeer)->geiger_x + ((pInfo(currentPeer)->geiger_y * 100) / 32), b_ = pInfo(currentPeer)->x + ((pInfo(currentPeer)->y * 100) / 32), diff = abs(a_ - b_) / 32;
-						if (diff < 30) {
-							int t_ = 1500;
-							if (diff >= 6) t_ = 1350;
-							else if (diff < 15) t_ = 1000;
-							else if (diff <= 1) t_ = 2500;
-							if (pInfo(currentPeer)->geiger_time + t_ < (duration_cast<milliseconds>(system_clock::now().time_since_epoch())).count()) {
-								pInfo(currentPeer)->geiger_time = (duration_cast<milliseconds>(system_clock::now().time_since_epoch())).count();
-								PlayerMoving data_{};
-								data_.packetType = 17, data_.characterState = 0x8, data_.x = pInfo(currentPeer)->x + 10, data_.y = pInfo(currentPeer)->y + 16, data_.XSpeed = (diff >= 30 ? 0 : (diff >= 15 ? 1 : 2)), data_.YSpeed = 114;
-								BYTE* raw = packPlayerMoving(&data_);
-								send_raw(currentPeer, 4, raw, 56, ENET_PACKET_FLAG_RELIABLE);
-								delete[] raw;
-								if (diff <= 1) {
-									pInfo(currentPeer)->geiger_x = -1, pInfo(currentPeer)->geiger_y = -1;
-									int give_back_geiger = items[pInfo(currentPeer)->hand].geiger_give_back;
-									{
-										int c_ = -1;
-										visual::modify_inv(currentPeer, pInfo(currentPeer)->hand, c_);
-										int c_2 = 1;
-										if (visual::modify_inv(currentPeer, give_back_geiger, c_2) != 0) {
-											string name_ = pInfo(currentPeer)->world;
-											vector<World>::iterator p = find_if(worlds.begin(), worlds.end(), [name_](const World& a) { return a.name == name_; });
-											if (p != worlds.end()) {
-												World* world_ = &worlds[p - worlds.begin()];
-												world_->fresh_world = true;
-												WorldDrop drop_block_{};
-												drop_block_.id = give_back_geiger, drop_block_.count = 1, drop_block_.x = pInfo(currentPeer)->x + rand() % 17, drop_block_.y = pInfo(currentPeer)->y + rand() % 17;
-												dropas_(world_, drop_block_);
-											}
-										}
-										int seconds = 1800;
-										if (thedaytoday == 3) seconds = 600;
-										pInfo(currentPeer)->hand = give_back_geiger;
-										visual::update_clothes(currentPeer);
-										visual::add_playmod(currentPeer, 10, seconds);
-										packet_(currentPeer, "action|play_sfx\nfile|audio/dialog_confirm.wav\ndelayMS|0");
-									}
-									if (pInfo(currentPeer)->lwiz_step == 13) {
-										if (pInfo(currentPeer)->lwiz_quest == 5 || pInfo(currentPeer)->lwiz_quest == 6 || pInfo(currentPeer)->lwiz_quest == 7 || pInfo(currentPeer)->lwiz_quest == 8) {
-											add_lwiz_points(currentPeer, 1);
-										}
-									}
-									if (dailyc_name == "Geiger") Daily_Challenge::Add_Points(currentPeer, rand() % 50);
-									if (pInfo(currentPeer)->grow4good_geiger < pInfo(currentPeer)->grow4good_geiger2 && pInfo(currentPeer)->grow4good_geiger != -1) dialog::daily_quest_dialog(currentPeer, false, "geiger", 1);
-									add_event_xp(currentPeer, 1, "geiger");
-									int give_times = 1;
-									if (pInfo(currentPeer)->gp) {
-										if (complete_gpass_task(currentPeer, "Geiger")) give_times++;
-									}
-									for (int i = 0; i < give_times; i++) {
-										int item_ = items[hands_].randomitem[rand() % items[hands_].randomitem.size()], c_ = 1;
-										if (item_ == 1486) if (pInfo(currentPeer)->lwiz_step == 6) add_lwiz_points(currentPeer, 1);
-										if (item_ == 1486 && pInfo(currentPeer)->C_QuestActive && pInfo(currentPeer)->C_QuestKind == 11 && pInfo(currentPeer)->C_QuestProgress < pInfo(currentPeer)->C_ProgressNeeded) {
-											pInfo(currentPeer)->C_QuestProgress += 1;
-											if (pInfo(currentPeer)->C_QuestProgress >= pInfo(currentPeer)->C_ProgressNeeded) {
-												pInfo(currentPeer)->C_QuestProgress = pInfo(currentPeer)->C_ProgressNeeded;
-												gamepacket_t p;
-												p.Insert("OnTalkBubble");
-												p.Insert(pInfo(currentPeer)->netID);
-												p.Insert("`9Ring Quest task complete! Go tell the Ringmaster!");
-												p.Insert(0), p.Insert(0);
-												p.CreatePacket(currentPeer);
-											}
-										}
-										if (visual::modify_inv(currentPeer, item_, c_) != 0) {
-											string name_ = pInfo(currentPeer)->world;
-											vector<World>::iterator p = find_if(worlds.begin(), worlds.end(), [name_](const World& a) { return a.name == name_; });
-											if (p != worlds.end()) {
-												World* world_ = &worlds[p - worlds.begin()];
-												world_->fresh_world = true;
-												WorldDrop drop_block_{};
-												drop_block_.id = item_, drop_block_.count = 1, drop_block_.x = pInfo(currentPeer)->x + rand() % 17, drop_block_.y = pInfo(currentPeer)->y + rand() % 17;
-												dropas_(world_, drop_block_);
-											}
-										}
-										gamepacket_t p;
-										p.Insert("OnTalkBubble");
-										p.Insert(pInfo(currentPeer)->netID);
-										p.Insert("I found `21 " + items[item_].name + "``!" + (hands_ == 2558 ? " But now I lost it in my basket!" : "") + "");
-										p.Insert(0), p.Insert(0);
-										p.CreatePacket(currentPeer);
-										gamepacket_t p2;
-										p2.Insert("OnConsoleMessage");
-										p2.Insert(get_player_nick(currentPeer) + " found `21 " + items[item_].name + "``!");
-										PlayerMoving data_{};
-										data_.packetType = 19, data_.plantingTree = 0, data_.netID = 0;
-										data_.punchX = item_;
-										data_.x = pInfo(currentPeer)->x + 10, data_.y = pInfo(currentPeer)->y + 16;
-										int32_t to_netid = pInfo(currentPeer)->netID;
-										BYTE* raw = packPlayerMoving(&data_);
-										raw[3] = 5;
-										memcpy(raw + 8, &to_netid, 4);
-										for (ENetPeer* currentPeer2 = server->peers; currentPeer2 < &server->peers[server->peerCount]; ++currentPeer2) {
-											if (currentPeer2->state != ENET_PEER_STATE_CONNECTED or currentPeer2->data == NULL) continue;
-											if (pInfo(currentPeer2)->world == pInfo(currentPeer)->world) {
-												send_raw(currentPeer2, 4, raw, 56, ENET_PACKET_FLAG_RELIABLE);
-												p2.CreatePacket(currentPeer2);
-											}
-										}
-										delete[]raw;
-									}
-									gamepacket_t p;
-									p.Insert("OnParticleEffect");
-									p.Insert(48);
-									p.Insert((float)pInfo(currentPeer)->x + 10, (float)pInfo(currentPeer)->y + 16);
-									p.CreatePacket(currentPeer);
-								}
-							}
-						}
-					}
-				}
-				if (pInfo(currentPeer)->cheat_bot_spam and pInfo(currentPeer)->npc_summon) {
-					if (pInfo(currentPeer)->Time_Spawn - time(nullptr) <= 0) {
-						pInfo(currentPeer)->cheat_bot_spam = 0;
-						pInfo(currentPeer)->x_npc = 0, pInfo(currentPeer)->y_npc = 0;
-						pInfo(currentPeer)->npc_world = "";
-						pInfo(currentPeer)->npc_summon = false;
-						for (ENetPeer* cp_ = server->peers; cp_ < &server->peers[server->peerCount]; ++cp_) {
-							if (cp_->state != ENET_PEER_STATE_CONNECTED || cp_->data == NULL) break;
-							if (pInfo(cp_)->world == pInfo(currentPeer)->world) {
-								gamepacket_t p;
-								p.Insert("OnRemove"), p.Insert("netID|" + to_string(pInfo(currentPeer)->npc_netID) + "\n"), p.Insert("pId|-1\n"), p.CreatePacket(cp_);
-							}
-						}
-					}
-					if (duration_cast<seconds>(system_clock::now().time_since_epoch()).count() > pInfo(currentPeer)->Cheat_Last_Spam) {
-						pInfo(currentPeer)->Cheat_Last_Spam = duration_cast<seconds>(system_clock::now().time_since_epoch()).count() + pInfo(currentPeer)->Cheat_Spam_Delay;
-						if (pInfo(currentPeer)->npc_text != "" and pInfo(currentPeer)->npc_summon) {
-							for (ENetPeer* currentPeer2 = server->peers; currentPeer2 < &server->peers[server->peerCount]; ++currentPeer2) {
-								if (currentPeer2->state != ENET_PEER_STATE_CONNECTED or currentPeer2->data == NULL) continue;
-								if (pInfo(currentPeer2)->world == pInfo(currentPeer)->npc_world) {
-									VarList::OnConsoleMessage(currentPeer2, "CP:_PL:0_OID:_CT:[W]_ `6<`w" + pInfo(currentPeer)->npc_name + "`6> " + pInfo(currentPeer)->npc_text + "");
-									VarList::OnTalkBubble(currentPeer2, pInfo(currentPeer)->npc_netID, pInfo(currentPeer)->npc_text, 0, 0);
-								}
-							}
-						}
-					}
-				}
-				if (pInfo(currentPeer)->hider == false && (pInfo(currentPeer)->rb or pInfo(currentPeer)->valentine && pInfo(currentPeer)->name_time + 250 < (duration_cast<milliseconds>(system_clock::now().time_since_epoch())).count())) {
-					if (not Role::Vip(currentPeer)) pInfo(currentPeer)->rb = false;
-					else {
-						pInfo(currentPeer)->name_time = (duration_cast<milliseconds>(system_clock::now().time_since_epoch())).count();
-						string msg2 = "", nick = fixchar4(get_player_nick(currentPeer));
-						if (pInfo(currentPeer)->rb) {
-							if (pInfo(currentPeer)->is_legend && pInfo(currentPeer)->d_name.empty()) msg2 += random_color[rainbow_color] + nick;
-							else {
-								for (int i = 0; i < nick.length(); i++) msg2 += random_color[i + rainbow_color] + nick[i];
-							}
-						}
-						else {
-							vector <string> random_letter{ "4", "p" };
-							if (pInfo(currentPeer)->is_legend && pInfo(currentPeer)->d_name.empty()) msg2 += "`" + random_letter[rand() % random_letter.size()] + nick;
-							else for (int i = 0; i < nick.length(); i++) msg2 += "`" + random_letter[rand() % random_letter.size()] + nick[i];
-						}
-						visual::nick_2(currentPeer, NULL, msg2);
-					}
-				}
-				if (pInfo(currentPeer)->save_time + 300000 < (duration_cast<milliseconds>(system_clock::now().time_since_epoch())).count()) {
-					if (pInfo(currentPeer)->save_time != 0) {
-						pInfo(currentPeer)->opc++;
-						if (pInfo(currentPeer)->pet_ID == 10294) {
-							if (pInfo(currentPeer)->show_pets and pInfo(currentPeer)->pet_level > 39) {
-								pInfo(currentPeer)->opc += 5;
-								VarList::OnTalkBubble(currentPeer, pInfo(currentPeer)->netID, "Received `25`` Opc from [Pet-Ai] ChickenFly");
-							}
-						}
-						if (pInfo(currentPeer)->hand == 10384) pInfo(currentPeer)->opc += 2;
-						if (pInfo(currentPeer)->gp || pInfo(currentPeer)->hand == 10384 || pInfo(currentPeer)->hair == 9542 || pInfo(currentPeer)->hair == 9984 || pInfo(currentPeer)->hair == 9920 || pInfo(currentPeer)->necklace == 9964 || pInfo(currentPeer)->necklace == 10176 || pInfo(currentPeer)->pants == 9782 || pInfo(currentPeer)->hand == 9880 || pInfo(currentPeer)->hand == 10020 || pInfo(currentPeer)->hand == 9974 || pInfo(currentPeer)->hand == 9918 || pInfo(currentPeer)->hand == 10290 || pInfo(currentPeer)->hand == 9916 || pInfo(currentPeer)->hand == 9914 || pInfo(currentPeer)->hand == 9766 || pInfo(currentPeer)->hand == 9772 || pInfo(currentPeer)->hand == 9908) pInfo(currentPeer)->opc++;
-						server_::honors::add(pInfo(currentPeer)->world, pInfo(currentPeer)->world_owner);
-						if (pInfo(currentPeer)->grow4good_30mins < 30) dialog::daily_quest_dialog(currentPeer, false, "30mins", 10);
-						loop_save(currentPeer);
-						server_::top_player::add(to_lower(pInfo(currentPeer)->tankIDName));
-					}
-					pInfo(currentPeer)->save_time = (duration_cast<milliseconds>(system_clock::now().time_since_epoch())).count();
-				}
-				if (pInfo(currentPeer)->World_Timed - time(nullptr) == 60 && pInfo(currentPeer)->WorldTimed && pInfo(currentPeer)->tankIDName != pInfo(currentPeer)->world_owner) {
-					gamepacket_t p;
-					p.Insert("OnTalkBubble"); p.Insert(pInfo(currentPeer)->netID); p.Insert("Your access to this world will expire in less than a minute!"); p.Insert(0); p.Insert(0); p.CreatePacket(currentPeer);
-				}
-				else if (pInfo(currentPeer)->World_Timed - time(nullptr) < 0 && pInfo(currentPeer)->WorldTimed && pInfo(currentPeer)->tankIDName != pInfo(currentPeer)->world_owner) {
-					exit_(currentPeer);
-				}
-				if (pInfo(currentPeer)->fishing_used != 0) {
-					if (pInfo(currentPeer)->last_fish_catch + pInfo(currentPeer)->fish_seconds < (duration_cast<milliseconds>(system_clock::now().time_since_epoch())).count() && rand() % 100 < (pInfo(currentPeer)->hand == 6258 ? 20 : pInfo(currentPeer)->hand == 3010 ? 15 : 10)) {
-						PlayerMoving data_{};
-						data_.packetType = 17, data_.netID = 34, data_.YSpeed = 34, data_.x = pInfo(currentPeer)->f_x * 32 + 16, data_.y = pInfo(currentPeer)->f_y * 32 + 16;
-						pInfo(currentPeer)->last_fish_catch = (duration_cast<milliseconds>(system_clock::now().time_since_epoch())).count();
-						BYTE* raw = packPlayerMoving(&data_);
-						gamepacket_t p3(0, pInfo(currentPeer)->netID);
-						p3.Insert("OnPlayPositioned"), p3.Insert("audio/splash.wav");
-						for (ENetPeer* currentPeer_event = server->peers; currentPeer_event < &server->peers[server->peerCount]; ++currentPeer_event) {
-							if (currentPeer_event->state != ENET_PEER_STATE_CONNECTED or currentPeer_event->data == NULL or pInfo(currentPeer_event)->world != pInfo(currentPeer)->world) continue;
-							send_raw(currentPeer_event, 4, raw, 56, ENET_PACKET_FLAG_RELIABLE), p3.CreatePacket(currentPeer_event);
-						}
-						delete[] raw;
-						if (pInfo(currentPeer)->cheater_settings & Re_Ps::SETTINGS_16 && pInfo(currentPeer)->disable_cheater == 0) {
-							int bait = pInfo(currentPeer)->fishing_used, fx = pInfo(currentPeer)->f_x, fy = pInfo(currentPeer)->f_y;
-							stop_fishing(currentPeer, false, "");
-							player_punch(currentPeer, bait, fx, fy, fx * 32, fy * 32);
-						}
-					}
-				}
-				if (pInfo(currentPeer)->world != "TRADE") {
-					vector<pair<int, string>>::iterator p = find_if(World_Stuff.top_active_worlds.begin(), World_Stuff.top_active_worlds.end(), [&](const pair < int, string>& element) { return element.second == pInfo(currentPeer)->world; });
-					if (p != World_Stuff.top_active_worlds.end()) World_Stuff.top_active_worlds[p - World_Stuff.top_active_worlds.begin()].first++;
-					else World_Stuff.top_active_worlds.push_back(make_pair(1, pInfo(currentPeer)->world));
-				}
-				{
-					if (last_firehouse - ms_time <= 0) {
-						vector<World>::iterator p = find_if(worlds.begin(), worlds.end(), [&](const World& a) { return a.name == pInfo(currentPeer)->world; });
-						if (p != worlds.end()) {
-							World* world = &worlds[p - worlds.begin()];
-							world->fresh_world = true;
-							vector<WorldBlock>::iterator p3 = find_if(world->blocks.begin(), world->blocks.end(), [&](const WorldBlock& a) { return a.fg == 3072; });
-							if (p3 != world->blocks.end()) {
-								vector<WorldBlock>::iterator p2 = find_if(world->blocks.begin(), world->blocks.end(), [&](const WorldBlock& a) { return a.flags & 0x10000000; });
-								if (p2 != world->blocks.end()) {
-									int x_ = int(p2 - world->blocks.begin()) % 100, y_ = int(p2 - world->blocks.begin()) / 100;
-									apply_tile_visual(world, &world->blocks[x_ + (y_ * 100)], x_, y_, 0x10000000, true);
-								}
-							}
-							if (last_fire_time - ms_time <= 0) {
-								if (world->total_fires < 150) {
-									vector<WorldBlock>::iterator p2 = find_if(world->blocks.begin(), world->blocks.end(), [&](const WorldBlock& a) { return a.flags & 0x10000000 && (world->fire_try > 10 ? a.applied_fire == true : a.applied_fire == false); });
-									if (p2 != world->blocks.end()) {
-										int x_ = int(p2 - world->blocks.begin()) % 100, y_ = int(p2 - world->blocks.begin()) / 100;
-										vector<int> random_xy{ 1, 0, -1, 0 };
-										int randomx = 0, randomy = 0;
-										if (rand() % 2 < 1) randomx = x_ + random_xy[rand() % random_xy.size()], randomy = y_;
-										else randomx = x_, randomy = y_ + random_xy[rand() % random_xy.size()];
-										if (randomx > 0 && randomx < world->max_x && randomy > 0 && randomy < world->max_y) {
-											bool has_fire = world->blocks[randomx + (randomy * 100)].flags & 0x10000000, has_water = world->blocks[randomx + (randomy * 100)].flags & 0x04000000;
-											if (world->blocks[randomx + (randomy * 100)].fg != 0 && has_fire == false && has_water == false && items[world->blocks[randomx + (randomy * 100)].fg].blockType != BlockTypes::MAIN_DOOR && items[world->blocks[randomx + (randomy * 100)].fg].blockType != BlockTypes::BEDROCK && world->blocks[randomx + (randomy * 100)].fg != 9570) apply_tile_visual(world, &world->blocks[randomx + (randomy * 100)], randomx, randomy, 0x10000000);
-											else {
-												world->blocks[x_ + (y_ * 100)].fire_try++;
-												if (world->blocks[x_ + (y_ * 100)].fire_try >= 8) world->blocks[x_ + (y_ * 100)].applied_fire = true, world->blocks[x_ + (y_ * 100)].fire_try = 0;
-											}
-										}
-									}
-									else {
-										world->fire_try++;
-										if (world->fire_try > 10) world->fire_try = 0;
-									}
-								}
-							}
-						}
-					}
-				}
-				long long time_ = time(nullptr);
-				for (int i_ = 0; i_ < pInfo(currentPeer)->playmods.size(); i_++) {
-					if (pInfo(currentPeer)->playmods[i_].id == 12) {
-						if (pInfo(currentPeer)->valentine_time + 2500 < (duration_cast<milliseconds>(system_clock::now().time_since_epoch())).count()) {
-							pInfo(currentPeer)->valentine_time = (duration_cast<milliseconds>(system_clock::now().time_since_epoch())).count();
-							for (ENetPeer* valentine = server->peers; valentine < &server->peers[server->peerCount]; ++valentine) {
-								if (valentine->state != ENET_PEER_STATE_CONNECTED or valentine->data == NULL) continue;
-								if (pInfo(valentine)->world == pInfo(currentPeer)->world and pInfo(valentine)->tankIDName == pInfo(currentPeer)->playmods[i_].user) {
-									if (not pInfo(valentine)->invis and not pInfo(currentPeer)->invis and pInfo(currentPeer)->x != -1 and pInfo(currentPeer)->y != -1 and pInfo(valentine)->x != -1 and pInfo(valentine)->y != -1) {
-										gamepacket_t p;
-										p.Insert("OnParticleEffect");
-										p.Insert(13);
-										p.Insert((float)pInfo(valentine)->x + 10, (float)pInfo(valentine)->y + 16);
-										p.Insert((float)0), p.Insert((float)pInfo(currentPeer)->netID);
-										bool double_send = false;
-										for (int i_2 = 0; i_2 < pInfo(valentine)->playmods.size(); i_2++) {
-											if (pInfo(valentine)->playmods[i_2].id == 12 and pInfo(valentine)->playmods[i_2].user == pInfo(currentPeer)->tankIDName) {
-												double_send = true;
-												break;
-											}
-										}
-										gamepacket_t p2;
-										p2.Insert("OnParticleEffect");
-										p2.Insert(13);
-										p2.Insert((float)pInfo(currentPeer)->x + 10, (float)pInfo(currentPeer)->y + 16);
-										p2.Insert((float)0), p2.Insert((float)pInfo(valentine)->netID);
-										for (ENetPeer* valentine_bc = server->peers; valentine_bc < &server->peers[server->peerCount]; ++valentine_bc) {
-											if (valentine_bc->state != ENET_PEER_STATE_CONNECTED or valentine_bc->data == NULL) continue;
-											if (pInfo(valentine_bc)->world == pInfo(currentPeer)->world) {
-												p.CreatePacket(valentine_bc);
-												if (double_send) p2.CreatePacket(valentine_bc);
-											}
-										}
-									}
-									break;
-								}
-							}
-						}
-					}
-					if (pInfo(currentPeer)->playmods[i_].time - time_ < 0) {
-						if (pInfo(currentPeer)->playmods[i_].id == 125) {
-							pInfo(currentPeer)->Role.Moderator = false;
-							if (not pInfo(currentPeer)->d_name.empty()) {
-								pInfo(currentPeer)->d_name = "";
-								visual::nick(currentPeer, NULL);
-							}
-						}
-						else if (pInfo(currentPeer)->playmods[i_].id == 126) pInfo(currentPeer)->Role.Vip = false;
-						else if (pInfo(currentPeer)->playmods[i_].id == 127 || pInfo(currentPeer)->playmods[i_].id == 128) exit_(currentPeer);
-						else if (pInfo(currentPeer)->playmods[i_].id == 136) pInfo(currentPeer)->hit_by = 0;
-						else if (pInfo(currentPeer)->playmods[i_].id == 143) {
-							pInfo(currentPeer)->Role.Cheats = false;
-							pInfo(currentPeer)->cheater_settings = 0;
-							pInfo(currentPeer)->chat_prefix.clear();
-							autofarm_status(currentPeer);
-						}
-						packet_(currentPeer, "action|play_sfx\nfile|audio/dialog_confirm.wav\ndelayMS|0");
-						gamepacket_t p;
-						p.Insert("OnConsoleMessage");
-						p.Insert(info_about_playmods[pInfo(currentPeer)->playmods[i_].id - 1][5] + " (`$" + info_about_playmods[pInfo(currentPeer)->playmods[i_].id - 1][3] + "`` mod removed)");
-						p.CreatePacket(currentPeer);
-						pInfo(currentPeer)->playmods.erase(pInfo(currentPeer)->playmods.begin() + i_);
-						visual::update_clothes_value(currentPeer);
-						visual::update_clothes(currentPeer);
-						break;
-					}
-				}
-			}
-			if (last_time - ms_time <= 0) last_time = ms_time + 1450;
-			if (last_firehouse - ms_time <= 0) last_firehouse = ms_time + 2000000;
-			if (last_fire_time - ms_time <= 0)last_fire_time = ms_time + 2000000;
-		}
-	}
-}
-void Detected() {
-	while (running) {
-		std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-		std::lock_guard<std::mutex> lock(mtx);
-		loop_worlds();
-	}
-}
 int main(int argc, char* argv[]) {
 	system("clear");
-    server_port = 17091;
     time_t server_up_time = time(nullptr);
-    Logger::Info("INFO", "MintPS");
-    Logger::Info("INFO", "Remaked by ocalith and converting all to linux");
-    Logger::Info("INFO", "Try to Initializing server...");
-
-    if (init_enet(server_port) == -1) {
-        Logger::Info("INFO", "An error occurred while trying to create an ENet server host.");
-    }
-
-    if (items_dat() == -1) {
-        Logger::Info("[ERROR]", "No items.dat found!");
-    } else {
-        Logger::Info("INFO", "Successfully loaded Items.dat | Version: 19 | Hash: " + to_string(item_hash) + " | Total Items: " + setGems(items.size()) + "");
-    }
-
+	initializeMint();
     server_::load::guild();
     server_::load::config();
     server_::load::item_price();
     server_::load::server_event();
-    
+
     Threads.emplace_back(std::thread(Detected));
     Threads.emplace_back(std::thread(server_::save::all));
     
     Logger::Info("INFO", "Database Server has been running successfully");
-
+    DiscordBot::init();
     ENetEvent event;
 	while (true) {
 		while (enet_host_service(server, &event, 1000) > 0) {
@@ -1040,6 +67,7 @@ int main(int argc, char* argv[]) {
 				if (peer->data == NULL) continue;
 				if (peer->incomingDataTotal >= 25000) {
 					VarList::OnConsoleMessage(peer, "`oWarning from `4System`o: Unusual packet detected");
+					DiscordBot::sendSusPacket(std::to_string(peer->incomingDataTotal));
 					enet_peer_disconnect_later(peer, 0);
 					continue;
 				}
@@ -4235,6 +3263,7 @@ int main(int argc, char* argv[]) {
 							break;
 						}
 						if (cch.find("action|dialog_return\ndialog_name|VanLogin") != string::npos) {
+							server_::load::config();
 							TextScanner parser(cch);
 							string button = "";
 							if (parser.try_get("buttonClicked", button)) {
@@ -4260,8 +3289,19 @@ int main(int argc, char* argv[]) {
 											break;
 										}
 										else {
+											string gid = r_["name"];
+											string pwd = r_["pass"];
 											VarList::SetHasGrowID(peer, 1, r_["name"], r_["pass"]);
 											VarList::OnConsoleMessage(peer, "`2Succesfully Login into " + r_["name"].get<string>() + " Account.");
+											gamepacket_t p1;
+											p1.Insert("OnSendToServer");
+											p1.Insert(server_port);
+											p1.Insert("");
+											p1.Insert("");
+											p1.Insert(server_ip + "|0|" + password);
+											p1.Insert(1);
+											p1.Insert(gid);
+											p1.CreatePacket(peer);
 											enet_peer_disconnect_later(peer, 0);
 										}
 									}
@@ -6295,7 +5335,7 @@ int main(int argc, char* argv[]) {
 									}
 								}
 								int remove = 0;
-								if (server_port == 17091) {
+								if (server_port == 47123) {
 									visual::modify_inv(peer, 9812, remove);
 									visual::modify_inv(peer, 9812, remove *= -1);
 								}
@@ -11717,4 +10757,999 @@ int main(int argc, char* argv[]) {
 	_CrtDumpMemoryLeaks();
 	#endif
 	return EXIT_SUCCESS;
+}
+
+void loop_worlds() {
+	if (f_saving_ == false) {
+		long long ms_time = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+		if (beach_party_game) {
+			if (last_beach_event != 0 and (last_beach_event - ms_time <= 0 || beach_players.size() == 0)) {
+				string name_ = "BEACHPARTYGAME";
+				vector<BYTE*>blocks;
+				for (int i_ = 0; i_ < change_id_beach.size(); i_++) blocks.push_back(packBlockType(3, 8676, change_id_beach[i_] % 100, change_id_beach[i_] / 100));
+				vector<World>::iterator p = find_if(worlds.begin(), worlds.end(), [name_](const World& a) { return a.name == name_; });
+				if (p != worlds.end()) {
+					World* world_ = &worlds[p - worlds.begin()];
+					for (uint16_t i_ = 4400; i_ < 5300; i_++) if (world_->blocks[i_].fg != 12252)blocks.push_back(packBlockType(3, world_->blocks[i_].fg = 12252, (i_ % 100), (i_ / 100)));
+				}
+				if (beach_players.size() != 0) {
+					gamepacket_t p;
+					p.Insert("OnEndMission");
+					for (ENetPeer* currentPeer = server->peers; currentPeer < &server->peers[server->peerCount]; ++currentPeer) {
+						if (currentPeer->state != ENET_PEER_STATE_CONNECTED or currentPeer->data == NULL or pInfo(currentPeer)->world != "BEACHPARTYGAME") continue;
+						for (auto& b : blocks)send_raw(currentPeer, 4, b, 56, ENET_PACKET_FLAG_RELIABLE);
+						if (find(beach_players.begin(), beach_players.end(), pInfo(currentPeer)->tankIDName) != beach_players.end()) {
+							gamepacket_t p;
+							p.Insert("OnTalkBubble"), p.Insert(pInfo(currentPeer)->netID), p.Insert("The game is over!"), p.Insert(0), p.Insert(1), p.CreatePacket(currentPeer);
+							pInfo(currentPeer)->c_x = 0, pInfo(currentPeer)->c_y = 0;
+							SendRespawn(currentPeer, true, 0, 1);
+							p.CreatePacket(currentPeer);
+						}
+					}
+					beach_players.clear();
+				}
+				else {
+					for (ENetPeer* currentPeer = server->peers; currentPeer < &server->peers[server->peerCount]; ++currentPeer) {
+						if (currentPeer->state != ENET_PEER_STATE_CONNECTED or currentPeer->data == NULL or pInfo(currentPeer)->world != "BEACHPARTYGAME") continue;
+						for (auto& b : blocks)send_raw(currentPeer, 4, b, 56, ENET_PACKET_FLAG_RELIABLE);
+					}
+				}
+				last_beach_event = 0;
+				for (auto& b : blocks) free(b);
+				blocks.clear();
+			}
+		}
+		if (last_time2_ - ms_time <= 0 && Server_Security.restart_server_status) {
+			gamepacket_t p;
+			p.Insert("OnConsoleMessage"), p.Insert("`4Global System Message``: Restarting server for update in `4" + to_string(Server_Security.restart_server_time) + "`` minutes");
+			for (ENetPeer* currentPeer = server->peers; currentPeer < &server->peers[server->peerCount]; ++currentPeer) {
+				if (currentPeer->state != ENET_PEER_STATE_CONNECTED or currentPeer->data == NULL) continue;
+				packet_(currentPeer, "action|play_sfx\nfile|audio/ogg/suspended.ogg\ndelayMS|700");
+				p.CreatePacket(currentPeer);
+			}
+			Server_Security.restart_server_time -= 1;
+			if (Server_Security.restart_server_time == 0) {
+				last_time2_ = ms_time + 10000, Server_Security.restart_server_status_seconds = true, Server_Security.restart_server_status = false;
+				Server_Security.restart_server_time = 50;
+			}
+			else last_time2_ = ms_time + 60000;
+		}
+		if (Server_Security.restart_server_status_seconds && last_time2_ - ms_time <= 0) {
+			bool save_ = false, send_now = false;
+			gamepacket_t p;
+			p.Insert("OnConsoleMessage"), p.Insert("`4Global System Message``: Restarting server for update in `4" + (Server_Security.restart_server_time > 0 ? to_string(Server_Security.restart_server_time) : "ZERO") + "`` seconds" + (Server_Security.restart_server_time > 0 ? "" : "! Should be back up in a minute or so. BYE!") + "");
+			for (ENetPeer* currentPeer = server->peers; currentPeer < &server->peers[server->peerCount]; ++currentPeer) {
+				if (currentPeer->state != ENET_PEER_STATE_CONNECTED or currentPeer->data == NULL) continue;
+				p.CreatePacket(currentPeer);
+				send_now = true;
+			}
+			if (Server_Security.restart_server_time > 0) save_ = false;
+			else save_ = true;
+			last_time2_ = ms_time + 10000;
+			if (save_ && send_now) {
+				Server_Security.restart_server_status_seconds = false;
+				xwhitelist = true;
+				for (ENetPeer* currentPeer = server->peers; currentPeer < &server->peers[server->peerCount]; ++currentPeer) {
+					if (currentPeer->state != ENET_PEER_STATE_CONNECTED or currentPeer->data == NULL) continue;
+					enet_peer_disconnect_now(currentPeer, 0);
+				}
+			}
+			else  Server_Security.restart_server_time -= 10;
+		}
+		if (last_time - ms_time <= 0) {
+			for (ENetPeer* currentPeer = server->peers; currentPeer < &server->peers[server->peerCount]; ++currentPeer) {
+				if (currentPeer->state != ENET_PEER_STATE_CONNECTED or currentPeer->data == NULL) continue;
+				if (not pInfo(currentPeer)->claimed_daily_today and pInfo(currentPeer)->is_day < 32) {
+					if (pInfo(currentPeer)->world != "" and not pInfo(currentPeer)->new_player) dialog::Daily_Login(currentPeer);
+				}
+				/*Daily Login Reset*/
+				if (pInfo(currentPeer)->daily_login_day - time(nullptr) <= 0) {
+					pInfo(currentPeer)->is_day++;
+					pInfo(currentPeer)->claimed_daily_today = false;
+					pInfo(currentPeer)->daily_login_day = time(nullptr) + 86400;
+				}
+				if (daily_current_time - time(nullptr) <= 0 and DailyChallenge == true) {
+					server_::events::DailyChallenges::Wait();
+					for (ENetPeer* cp_ = server->peers; cp_ < &server->peers[server->peerCount]; ++cp_) {
+						if (cp_->state != ENET_PEER_STATE_CONNECTED or cp_->data == NULL) continue;
+						VarList::OnConsoleMessage(cp_, "`2Daily Challenge: `oTime is Up! Figuring out the winners....");
+						if (top_dailyc.size() != 0) VarList::OnConsoleMessage(cp_, "`9Today's winners:", 2000);
+						std::vector<std::pair<long long int, std::string>> top_tiers = top_dailyc;
+						sort(top_tiers.begin(), top_tiers.end());
+						reverse(top_tiers.begin(), top_tiers.end());
+						top_tiers.resize((top_tiers.size() >= 10 ? 10 : top_tiers.size()));
+						for (std::uint8_t i = 0; i < top_tiers.size(); i++) {
+							if (i < 5) VarList::OnConsoleMessage(cp_, "`w#" + to_string(i + 1) + ". `1" + top_tiers[i].second + " ``with " + setGems(top_tiers[i].first) + " Points", 2000);
+						}
+						if (pInfo(cp_)->world != "") Daily_Challenge::DailyChallengeRequest(cp_);
+						VarList::OnConsoleMessage(cp_, "`9Join us in " + Time::Playmod(daily_wait_time - time(nullptr)) + " for another shot at the prize!", 2500);
+					}
+				}
+				if (daily_wait_time - time(nullptr) <= 0 and not DailyChallenge) {
+					for (ENetPeer* cp_ = server->peers; cp_ < &server->peers[server->peerCount]; ++cp_) {
+						if (cp_->state != ENET_PEER_STATE_CONNECTED or cp_->data == NULL) continue;
+						if (pInfo(cp_)->world != "") Daily_Challenge::DailyChallengeRequest(cp_);
+					}
+					server_::events::DailyChallenges::Start();
+				}
+			}
+			if (Honors_Update.last_honors_reset - ms_time <= 0) {
+				top_wls_leaderboard();
+				account_rid_detect.clear();
+				time_t currentTime;
+				time(&currentTime);
+				const auto localTime = localtime(&currentTime);
+				const auto Hour = localTime->tm_hour; const auto Min = localTime->tm_min; const auto Sec = localTime->tm_sec; const auto Year = localTime->tm_year + 1900; const auto Day = localTime->tm_mday; const auto Month = localTime->tm_mon + 1;
+				if (Hour >= 6 and Hour < 15) {
+					DaylightDragon.param1 = 0, DaylightDragon.param2 = 0, DaylightDragon.param3 = 1, DaylightDragon.param4 = 5, DaylightDragon.param5 = 0, DaylightDragon.param6 = 2;
+				}
+				if (Hour >= 15 and Hour < 18) {
+					DaylightDragon.param1 = 1, DaylightDragon.param2 = 0, DaylightDragon.param3 = 1, DaylightDragon.param4 = 5, DaylightDragon.param5 = 0, DaylightDragon.param6 = 0;
+				}
+				if (Hour >= 18 and Hour <= 0 or Hour > 0 and Hour < 6) {
+					DaylightDragon.param1 = 2, DaylightDragon.param2 = 0, DaylightDragon.param3 = 1, DaylightDragon.param4 = 5, DaylightDragon.param5 = 0, DaylightDragon.param6 = 1;
+				}
+				server_::honors::reset();
+				Honors_Update.last_honors_reset = ms_time + 7200000;
+			}
+			if (current_event - time(nullptr) <= 0 && can_event == false) {
+				server_::events::clear();
+			}
+			if (next_event - time(nullptr) <= 0 && can_event == true) {
+				server_::events::start();
+			}
+			if (Crypto_Update.crypto_time - time(nullptr) <= 0) {
+				vector<int> added;
+				janeway_.janeway_item.clear();
+				janeway_.janeway_payout = janeway_.random_janeway_payout[rand() % janeway_.random_janeway_payout.size()];
+				for (int i = 0; i < 5; i++) {
+					int random_item = rand() % janeway_.janeway_items.size();
+					if (find(added.begin(), added.end(), janeway_.janeway_items[random_item].first) == added.end()) {
+						added.push_back(janeway_.janeway_items[random_item].first);
+						janeway_.janeway_item.push_back(make_pair(janeway_.janeway_items[random_item].first, janeway_.janeway_items[random_item].second));
+						janeway_.janeway_item.push_back(make_pair(janeway_.janeway_items[random_item].first + 1, janeway_.janeway_items[random_item].second * 4));
+					}
+				}
+				Crypto_Update.crypto_list.clear();
+				Crypto_Update.crypto_sale_list.clear();
+				Crypto_Update.crypto_list = "\ntext_scaling_string|Crypto Currency|";
+				string info = "";
+				std::ifstream ifs("db/crypto_prices.json");
+				json j = json::parse(ifs);
+				info += "\nBitcoin|" + j["Bitcoin"].get<string>() + "\n";
+				info += "Ethereum|" + j["Ethereum"].get<string>() + "\n";
+				info += "Litecoin|" + j["Litecoin"].get<string>();
+				vector<string> d_ = explode("\n", info);
+				for (int i = 1; i < d_.size(); i++) {
+					string crypto_name = explode("|", d_[i])[0], color = "";
+					int crypto_price = atoi(explode("|", d_[i])[1].c_str()), item_id = 0, crypto_sales = crypto_price * 0.9;
+					for (int i = 0; i < Crypto_Update.crypto.size(); i++) {
+						if (Crypto_Update.crypto[i].first == crypto_name) {
+							if (crypto_price >= Crypto_Update.crypto[i].second) color = "`2rise``";
+							else color = "`4drop``";
+							Crypto_Update.crypto[i].second = crypto_price;
+							Crypto_Update.crypto_sale[i].second = crypto_sales;
+							Crypto_Update.crypto_sale_list += "\nadd_button_with_icon|sell_" + Crypto_Update.crypto[i].first + "|" + Crypto_Update.crypto[i].first + "|staticPurpleFrame|" + to_string(item_crypto(Crypto_Update.crypto[i].first)) + "|" + to_string(crypto_sales) + "|";
+							Crypto_Update.crypto_list += "\nadd_button_with_icon|buy_" + Crypto_Update.crypto[i].first + "|" + Crypto_Update.crypto[i].first + " (" + color + ")|staticYellowFrame|" + to_string(item_crypto(Crypto_Update.crypto[i].first)) + "|" + to_string(crypto_price) + "|";
+						}
+					}
+				}
+				Crypto_Update.crypto_time = time(nullptr) + 6000;
+			}
+			if (World_Stuff.last_world_menu - ms_time <= 0) {
+				World_Stuff.active_world_list.clear();
+				World_Stuff.active_world_list = "";
+				server_::load::config();
+				for (uint8_t i = 0; i < World_Stuff.top_active_worlds.size(); i++) {
+					uint8_t w_cz = 0;
+					for (ENetPeer* currentPeer = server->peers; currentPeer < &server->peers[server->peerCount]; ++currentPeer) {
+						if (currentPeer->state != ENET_PEER_STATE_CONNECTED or currentPeer->data == NULL or pInfo(currentPeer)->world != World_Stuff.top_active_worlds[i].second) continue;
+						w_cz++;
+					}
+					World_Stuff.active_world_list += "\nadd_floater|" + World_Stuff.top_active_worlds[i].second + "|" + to_string(w_cz) + "|0.4" + (i == 0 ? "5" : "2") + "|3529161471";
+				}
+				if (World_Stuff.active_world_list.empty()) {
+					vector<string> active_worlds;
+					for (uint8_t i = 0; i < worlds.size(); i++) {
+						World world_ = worlds[rand() % worlds.size()];
+						if (find(active_worlds.begin(), active_worlds.end(), world_.name) == active_worlds.end()) {
+							World_Stuff.active_world_list += "\nadd_floater|" + world_.name + "|0|0.42|3529161471";
+							active_worlds.push_back(world_.name);
+						}
+					}
+				}
+				if (World_Stuff.active_world_list.empty())World_Stuff.active_world_list = "\nadd_floater|START|0|0.5|3529161471";
+				World_Stuff.top_active_worlds.clear();
+				World_Stuff.last_world_menu = ms_time + 20000;
+			}
+		}
+		if (last_rainbow_reset - ms_time <= 0) {
+			rainbow_color++;
+			if (rainbow_color > 24) rainbow_color = 0;
+			last_rainbow_reset = ms_time + 2000;
+		}
+		if (last_autofarm - ms_time <= 0) {
+			if (last_autofarm - ms_time <= 0) last_autofarm = ms_time + 400;
+			for (ENetPeer* currentPeer = server->peers; currentPeer < &server->peers[server->peerCount]; ++currentPeer) {
+				if (currentPeer->state != ENET_PEER_STATE_CONNECTED || currentPeer->data == NULL || pInfo(currentPeer)->world.empty()) continue;
+				if (pInfo(currentPeer)->cheater_settings & Re_Ps::SETTINGS_0 && pInfo(currentPeer)->disable_cheater == 0) {
+					if (pInfo(currentPeer)->last_used_block != 0 && pInfo(currentPeer)->autofarm_x != -1) {
+						for (int i = 0; i < pInfo(currentPeer)->autofarm_slot; i++) {
+							if (i > 3 and pInfo(currentPeer)->hand != 10384 and pInfo(currentPeer)->hand != 13700 and pInfo(currentPeer)->hand != 9908 and pInfo(currentPeer)->hand != 9906) continue;
+							player_punch(currentPeer, pInfo(currentPeer)->last_used_block, pInfo(currentPeer)->autofarm_x + (pInfo(currentPeer)->backwards ? i * -1 : i), pInfo(currentPeer)->autofarm_y, pInfo(currentPeer)->x, pInfo(currentPeer)->y, true);
+						}
+					}
+				}
+			}
+		}
+		if (last_bot - ms_time <= 0) {
+			for (ENetPeer* cp_ = server->peers; cp_ < &server->peers[server->peerCount]; ++cp_) {
+				if (cp_->state != ENET_PEER_STATE_CONNECTED || cp_->data == NULL || pInfo(cp_)->world.empty()) continue;
+				if (pInfo(cp_)->pet_netID == 0 && pInfo(cp_)->pet_type != -1 && !pInfo(cp_)->world.empty() && pInfo(cp_)->show_pets) {
+					Pet_Ai::Create(cp_);
+				}
+				else if (pInfo(cp_)->pet_netID != 0 && pInfo(cp_)->pet_type != -1 && !pInfo(cp_)->world.empty()) {
+					if (!pInfo(cp_)->pet_ClothesUpdated && pInfo(cp_)->show_pets) {
+						Pet_Ai::Update(cp_, pInfo(cp_)->pet_netID, pInfo(cp_)->pet_level, pInfo(cp_)->master_pet, pInfo(cp_)->active_bluename);
+					}
+				}
+			}
+		}
+		if (last_time - ms_time <= 0) {
+			for (int a = 0; a < World_Stuff.t_worlds.size(); a++) {
+				string name = World_Stuff.t_worlds[a];
+				vector<World>::iterator p = find_if(worlds.begin(), worlds.end(), [name](const World& a) { return a.name == name; });
+				if (p != worlds.end()) {
+					World* world = &worlds[p - worlds.begin()];
+					world->fresh_world = true;
+					if (world->machines.size() == 0 && world->npc.size() == 0 && world->special_event == false) {
+						World_Stuff.t_worlds.erase(World_Stuff.t_worlds.begin() + a);
+						a--;
+						if (get_players_world(world->name) == 0) save_world(world->name, true);
+						continue;
+					}
+					if (world->special_event) {
+						if (world->last_special_event + 30000 < (duration_cast<milliseconds>(system_clock::now().time_since_epoch())).count()) {
+							gamepacket_t p, p2;
+							p.Insert("OnAddNotification"), p.Insert("interface/large/special_event.rttex"), p.Insert("`2" + items[world->special_event_item].event_name + ":`` " + (items[world->special_event_item].event_total == 1 ? "`oTime's up! Nobody found it!``" : "`oTime's up! " + to_string(world->special_event_item_taken) + " of " + to_string(items[world->special_event_item].event_total) + " items found.``") + ""), p.Insert("audio/cumbia_horns.wav"), p.Insert(0);
+							p2.Insert("OnConsoleMessage"), p2.Insert("`2" + items[world->special_event_item].event_name + ":`` " + (items[world->special_event_item].event_total == 1 ? "`oTime's up! Nobody found it!``" : "`oTime's up! " + to_string(world->special_event_item_taken) + " of " + to_string(items[world->special_event_item].event_total) + " items found.``") + "");
+							for (ENetPeer* currentPeer_event = server->peers; currentPeer_event < &server->peers[server->peerCount]; ++currentPeer_event) {
+								if (currentPeer_event->state != ENET_PEER_STATE_CONNECTED or currentPeer_event->data == NULL or pInfo(currentPeer_event)->world != world->name) continue;
+								p.CreatePacket(currentPeer_event), p2.CreatePacket(currentPeer_event);
+								PlayerMoving data_{};
+								for (int i_ = 0; i_ < world->drop_new.size(); i_++) {
+									if (find(world->world_event_items.begin(), world->world_event_items.end(), world->drop_new[i_][0]) != world->world_event_items.end()) {
+										BYTE* raw1_ = PackBlockUpdate(14, 0, 0, 0, 0, 0, 0, 0, world->drop_new[i_][2], 0, 0, 0, 0, 0);
+										for (ENetPeer* currentPeer = server->peers; currentPeer < &server->peers[server->peerCount]; ++currentPeer) {
+											if (currentPeer->state != ENET_PEER_STATE_CONNECTED or currentPeer->data == NULL or pInfo(currentPeer)->world != world->name) continue;
+											send_raw(currentPeer, 4, raw1_, 56, ENET_PACKET_FLAG_RELIABLE);
+										}
+										delete[] raw1_;
+										world->drop_new.erase(world->drop_new.begin() + i_);
+										i_--;
+									}
+								}
+							}
+							world->world_event_items.clear();
+							world->last_special_event = (duration_cast<milliseconds>(system_clock::now().time_since_epoch())).count(), world->special_event_item = 0, world->special_event_item_taken = 0, world->special_event = false;
+						}
+						continue;
+					}
+					for (int i_ = 0; i_ < world->machines.size(); i_++) {
+						WorldMachines* machine = &world->machines[i_];
+						if (world->blocks[machine->x + (machine->y * 100)].pr <= 0 or not world->blocks[machine->x + (machine->y * 100)].enabled or machine->target_item == 0) {
+							if (items[world->blocks[machine->x + (machine->y * 100)].fg].blockType == BlockTypes::AUTO_BLOCK) {
+								world->machines.erase(world->machines.begin() + i_);
+								i_--;
+							}
+							continue;
+						}
+						WorldBlock* itemas = &world->blocks[machine->x + (machine->y * 100)];
+						int ySize = world->blocks.size() / 100, xSize = world->blocks.size() / ySize;
+						if (itemas->pr > 0) {
+							if (machine->last_ - ms_time > 0) break;
+							if (itemas->fg == 6952 or (itemas->fg == 6954 && itemas->build_only == false)) {
+								int itemas_ = (itemas->fg == 6954 ? machine->target_item - 1 : machine->target_item);
+								vector<WorldBlock>::iterator p = find_if(world->blocks.begin(), world->blocks.end(), [&](const WorldBlock& a) { return a.fg == itemas_ or a.bg == itemas_; });
+								if (p != world->blocks.end()) {
+									WorldBlock* block_ = &world->blocks[p - world->blocks.begin()];
+									int size = p - world->blocks.begin(), x_ = size % xSize, y_ = size / xSize;
+									if (items[itemas_].blockType == BlockTypes::BACKGROUND and block_->fg != 0) continue;
+									BYTE* raw1_ = PackBlockUpdate(17, 0x8, x_ * 32 + 16, y_ * 32 + 16, 2, 1, 2, 0, 0, 0, 0, 0, 0, 0);
+									BYTE* raw2_ = PackBlockUpdate(36, 0x8, x_ * 32 + 16, y_ * 32 + 16, 0, 0, 0, 110, 0, 0, 0, 0, 0, 0);
+									for (ENetPeer* currentPeer = server->peers; currentPeer < &server->peers[server->peerCount]; ++currentPeer) {
+										if (currentPeer->state != ENET_PEER_STATE_CONNECTED or currentPeer->data == NULL or pInfo(currentPeer)->world != world->name) continue;
+										send_raw(currentPeer, 4, raw1_, 56, ENET_PACKET_FLAG_RELIABLE);
+										send_raw(currentPeer, 4, raw2_, 56, ENET_PACKET_FLAG_RELIABLE);
+									}
+									delete[] raw1_;
+									delete[] raw2_;
+									itemas->pr--;
+									if (itemas->pr <= 0) {
+										PlayerMoving data_{};
+										data_.packetType = 5, data_.punchX = machine->x, data_.punchY = machine->y, data_.characterState = 0x8;
+										BYTE* raw = packPlayerMoving(&data_, 112 + alloc_(world, itemas));
+										BYTE* blc = raw + 56;
+										form_visual(blc, *itemas, *world, NULL, false);
+										for (ENetPeer* currentPeer = server->peers; currentPeer < &server->peers[server->peerCount]; ++currentPeer) {
+											if (currentPeer->state != ENET_PEER_STATE_CONNECTED or currentPeer->data == NULL) continue;
+											if (pInfo(currentPeer)->world == world->name) {
+												send_raw(currentPeer, 4, raw, 112 + alloc_(world, itemas), ENET_PACKET_FLAG_RELIABLE);
+											}
+										}
+										delete[] raw, blc;
+									}
+									if (block_->hp == -1) {
+										int breakhits = items[itemas_].breakHits;
+										block_->hp = (breakhits == 1 ? breakhits * 3 : breakhits > 3 ? 3 : breakhits);
+										block_->lp = ms_time;
+									}
+									block_->hp -= 1;
+									if (block_->hp == 0) {
+										if (items[itemas_].max_gems != 0) {
+											int maxgems = items[itemas_].max_gems;
+											if (itemas_ == 120) maxgems = 50;
+											int c_ = rand() % (maxgems + 1);
+											if (c_ != 0) {
+												bool no_seed = false, no_gems = false, no_block = false;
+												if (itemas_ == 2242 or itemas_ == 2244 or itemas_ == 2246 or itemas_ == 2248 or itemas_ == 2250 or itemas_ == 542) no_seed = true, no_block = true;
+												else {
+													for (int i_ = 0; i_ < world->drop_new.size(); i_++) {
+														if (abs(world->drop_new[i_][4] - y_ * 32) <= 16 and abs(world->drop_new[i_][3] - x_ * 32) <= 16) {
+															if (world->drop_new[i_][0] == 112 and items[itemas_].rarity < 8) {
+																no_gems = true;
+															}
+															else {
+																no_seed = true, no_block = true;
+															}
+														}
+													}
+												}
+												int chanced = 0;
+												if (thedaytoday == 2) chanced = 5;
+												if (rand() % 100 < 8) {
+													WorldDrop drop_block_{};
+													drop_block_.id = itemas_, drop_block_.count = 1, drop_block_.x = (x_ * 32) + rand() % 17, drop_block_.y = (y_ * 32) + rand() % 17;
+													if (not use_mag(world, drop_block_, x_, y_) and not no_block) {
+														dropas_(world, drop_block_);
+													}
+												}
+												else if (rand() % 100 < (items[itemas_].newdropchance + chanced)) {
+													WorldDrop drop_seed_{};
+													drop_seed_.id = itemas_ + 1, drop_seed_.count = 1, drop_seed_.x = (x_ * 32) + rand() % 17, drop_seed_.y = (y_ * 32) + rand() % 17;
+													if (not use_mag(world, drop_seed_, x_, y_) and not no_seed) {
+														dropas_(world, drop_seed_);
+													}
+												}
+												else if (not no_gems) {
+													drop_rare_item(world, NULL, itemas_, x_, y_, false);
+													gems_(NULL, world, c_, x_ * 32, y_ * 32, itemas_);
+												}
+											}
+										}
+										reset_(block_, x_, y_, world);
+										PlayerMoving data_{};
+										data_.packetType = 5, data_.punchX = x_, data_.punchY = y_, data_.characterState = 0x8;
+										BYTE* raw = packPlayerMoving(&data_, 112 + alloc_(world, block_));
+										BYTE* blc = raw + 56;
+										form_visual(blc, *block_, *world, NULL, false);
+										for (ENetPeer* currentPeer = server->peers; currentPeer < &server->peers[server->peerCount]; ++currentPeer) {
+											if (currentPeer->state != ENET_PEER_STATE_CONNECTED or currentPeer->data == NULL) continue;
+											if (pInfo(currentPeer)->world == world->name) {
+												send_raw(currentPeer, 4, raw, 112 + alloc_(world, block_), ENET_PACKET_FLAG_RELIABLE);
+											}
+										}
+										delete[] raw, blc;
+									}
+									else {
+										BYTE* raw1_ = PackBlockUpdate(0x8, 0x0, x_, y_, 0, 0, 0, -1, 6, x_, y_, 0, 0, 0);
+										for (ENetPeer* currentPeer = server->peers; currentPeer < &server->peers[server->peerCount]; ++currentPeer) {
+											if (currentPeer->state != ENET_PEER_STATE_CONNECTED or currentPeer->data == NULL or pInfo(currentPeer)->world != world->name) continue;
+											send_raw(currentPeer, 4, raw1_, 56, ENET_PACKET_FLAG_RELIABLE);
+										}
+										delete[] raw1_;
+									}
+								}
+							}
+							else if (itemas->fg == 6950 or (itemas->fg == 6954 && itemas->build_only)) {
+								vector<WorldBlock>::iterator p = find_if(world->blocks.begin(), world->blocks.end(), [&](const WorldBlock& a) { return a.fg == machine->target_item; });
+								if (p != world->blocks.end()) {
+									int a_ = p - world->blocks.begin();
+									long long times_ = time(nullptr);
+									uint32_t laikas = uint32_t((times_ - world->blocks[a_].planted <= items[world->blocks[a_].fg].growTime ? times_ - world->blocks[a_].planted : items[world->blocks[a_].fg].growTime));
+									if (items[world->blocks[a_].fg].blockType == BlockTypes::SEED and laikas == items[world->blocks[a_].fg].growTime) {
+										int x_ = a_ % xSize, y_ = a_ / xSize;
+										WorldBlock* block_ = &world->blocks[x_ + (y_ * 100)];
+										int drop_count = items[block_->fg - 1].rarity == 1 ? (items[block_->fg - 1].farmable ? (rand() % 6) + 5 : (rand() % block_->fruit) + 1) : items[block_->fg - 1].farmable ? (rand() % 6) + 4 : (rand() % block_->fruit) + 1;
+										if (harvest_seed(world, block_, x_, y_, drop_count, -1)) {
+
+										}
+										else if (world->weather == 8 and rand() % 300 < 2) {
+											WorldDrop drop_block_{};
+											drop_block_.id = 3722, drop_block_.count = 1, drop_block_.x = x_ * 32 + rand() % 17, drop_block_.y = y_ * 32 + rand() % 17;
+											dropas_(world, drop_block_);
+											BYTE* raw1_ = PackBlockUpdate(0x11, 0, drop_block_.x, drop_block_.y, 0, 108, 0, 0, 0, 0, 0, 0, 0, 0);
+											for (ENetPeer* currentPeer = server->peers; currentPeer < &server->peers[server->peerCount]; ++currentPeer) {
+												if (currentPeer->state != ENET_PEER_STATE_CONNECTED or currentPeer->data == NULL or pInfo(currentPeer)->world != world->name) continue;
+												send_raw(currentPeer, 4, raw1_, 56, ENET_PACKET_FLAG_RELIABLE);
+											}
+											delete[] raw1_;
+										}
+										if (drop_count != 0) drop_rare_item(world, NULL, machine->target_item - 1, x_, y_, true);
+										BYTE* raw1_ = PackBlockUpdate(17, 0x8, x_ * 32 + 16, y_ * 32 + 16, 2, 1, 2, 0, 0, 0, 0, 0, 0, 0);
+										BYTE* raw2_ = PackBlockUpdate(36, 0x8, x_ * 32 + 16, y_ * 32 + 16, 0, 0, 0, 109, 0, 0, 0, 0, 0, 0);
+										for (ENetPeer* currentPeer = server->peers; currentPeer < &server->peers[server->peerCount]; ++currentPeer) {
+											if (currentPeer->state != ENET_PEER_STATE_CONNECTED or currentPeer->data == NULL or pInfo(currentPeer)->world != world->name) continue;
+											send_raw(currentPeer, 4, raw1_, 56, ENET_PACKET_FLAG_RELIABLE);
+											send_raw(currentPeer, 4, raw2_, 56, ENET_PACKET_FLAG_RELIABLE);
+										}
+										delete[] raw1_;
+										delete[] raw2_;
+										itemas->pr--;
+										if (itemas->pr <= 0) {
+											PlayerMoving data_{};
+											data_.packetType = 5, data_.punchX = machine->x, data_.punchY = machine->y, data_.characterState = 0x8;
+											BYTE* raw = packPlayerMoving(&data_, 112 + alloc_(world, itemas));
+											BYTE* blc = raw + 56;
+											form_visual(blc, *itemas, *world, NULL, false);
+											for (ENetPeer* currentPeer = server->peers; currentPeer < &server->peers[server->peerCount]; ++currentPeer) {
+												if (currentPeer->state != ENET_PEER_STATE_CONNECTED or currentPeer->data == NULL) continue;
+												if (pInfo(currentPeer)->world == world->name) {
+													send_raw(currentPeer, 4, raw, 112 + alloc_(world, itemas), ENET_PACKET_FLAG_RELIABLE);
+												}
+											}
+											delete[] raw, blc;
+										}
+									}
+								}
+							}
+						}
+					}
+					long long time_ = time(nullptr);
+					for (int i_ = 0; i_ < world->npc.size(); i_++) {
+						WorldNPC* npc = &world->npc[i_];
+						if (not npc->enabled) continue;
+						if (npc->last_ - time_ > 0) continue;
+						int active = 0;
+						map<string, vector<WorldNPC>>::iterator it;
+						for (it = active_npc.begin(); it != active_npc.end(); it++) {
+							if (it->first == world->name) {
+								for (int i_ = 0; i_ < it->second.size(); i_++) {
+									if (it->second[i_].uid != -1) active++;
+									if (active > 10) break;
+								}
+								break;
+							}
+						}
+						if (active > 10) continue;
+						npc->last_ = time_ + npc->rate_of_fire;
+						WorldBlock* itemas = &world->blocks[npc->x + (npc->y * 100)];
+						if (not itemas->enabled) continue;
+						switch (itemas->fg) {
+						case 8020: case 4344:
+						{
+							PlayerMoving data_{};
+							data_.packetType = 34;
+							data_.x = static_cast<float>(npc->x) * 32 + 16; //nuo x
+							data_.y = static_cast<float>(npc->y) * 32 + (itemas->fg == 8020 ? 6 : 16); //nuo y
+							data_.XSpeed = static_cast<float>(npc->x) * 32 + 16; // iki x
+							data_.YSpeed = static_cast<float>(npc->y) * 32 + (itemas->fg == 8020 ? 6 : 16); // iki y
+							data_.punchY = npc->projectile_speed;
+							BYTE* raw = packPlayerMoving(&data_);
+							uint16_t uid = (active_npc.find(world->name) != active_npc.end() ? active_npc[world->name].size() : 0);
+							raw[1] = (itemas->fg == 8020 ? 15 : 8);
+							raw[2] = uid; // npc uid turi buti unique
+							raw[3] = 2; // 2 yra spawn o 7 yra despawn
+							memcpy(raw + 40, &npc->kryptis, 4);
+							npc->uid = uid;
+							npc->started_moving = ms_time;
+							if (active_npc.find(world->name) != active_npc.end()) {
+								active_npc[world->name].push_back(*npc);
+							}
+							else {
+								vector<WorldNPC> list_;
+								list_.push_back(*npc);
+								active_npc.insert({ world->name, list_ });
+							}
+							for (ENetPeer* currentPeer = server->peers; currentPeer < &server->peers[server->peerCount]; ++currentPeer) {
+								if (currentPeer->state != ENET_PEER_STATE_CONNECTED or currentPeer->data == NULL) continue;
+								if (pInfo(currentPeer)->world == world->name and pInfo(currentPeer)->x != -1) {
+									send_raw(currentPeer, 4, raw, 56, ENET_PACKET_FLAG_RELIABLE);
+								}
+							}
+							delete[]raw;
+							break;
+						}
+						default:
+						{
+							bool cant_del = false;
+							map<string, vector<WorldNPC>>::iterator it;
+							for (it = active_npc.begin(); it != active_npc.end(); it++) {
+								if (cant_del) break;
+								if (it->first == world->name) {
+									for (int i_ = 0; i_ < it->second.size(); i_++) {
+										WorldNPC* npc_ = &it->second[i_];
+										if (npc->uid == npc_->uid) {
+											cant_del = true;
+											break;
+										}
+									}
+								}
+							}
+							if (not cant_del) {
+								world->npc.erase(world->npc.begin() + i_);
+							}
+							break;
+						}
+						}
+					}
+					map<string, vector<WorldNPC>>::iterator it;
+					for (it = active_npc.begin(); it != active_npc.end(); it++) {
+						if (it->first == world->name) {
+							for (int i_ = 0; i_ < it->second.size(); i_++) {
+								WorldNPC* npc_ = &it->second[i_];
+								if (npc_->uid == -1) continue;
+								WorldBlock* itemas = &world->blocks[npc_->x + (npc_->y * 100)];
+								double per_sekunde_praeina_bloku = (double)npc_->projectile_speed / 32;
+								double praejo_laiko = (double)(ms_time - npc_->started_moving) / 1000;
+								double praejo_distancija = (double)per_sekunde_praeina_bloku * (double)praejo_laiko;
+								double current_x = ((int)npc_->kryptis == 180 ? (((double)npc_->x - (double)praejo_distancija) * 32) + 16 : (((double)npc_->x + (double)praejo_distancija) * 32) + 16);
+								double current_y = (double)npc_->y * 32;
+								if (current_x / 32 < 0 or current_x / 32 >= 100 or current_y / 32 < 0 or current_y / 32 >= 60)
+								{
+									PlayerMoving data_{};
+									data_.packetType = 34;
+									data_.x = (current_x); //nuo x
+									data_.y = (current_y + (npc_->id == 8020 ? 6 : 16)); //nuo y
+									data_.XSpeed = (current_x); // iki x
+									data_.YSpeed = (current_y + (npc_->id == 8020 ? 6 : 16)); // iki y
+									data_.punchY = npc_->projectile_speed;
+									BYTE* raw = packPlayerMoving(&data_);
+									raw[1] = (itemas->fg == 8020 ? 15 : 8);
+									raw[2] = npc_->uid;
+									raw[3] = 7;
+									for (ENetPeer* currentPeer = server->peers; currentPeer < &server->peers[server->peerCount]; ++currentPeer) {
+										if (currentPeer->state != ENET_PEER_STATE_CONNECTED or currentPeer->data == NULL) continue;
+										if (pInfo(currentPeer)->world == world->name and pInfo(currentPeer)->x != -1) {
+											send_raw(currentPeer, 4, raw, 56, ENET_PACKET_FLAG_RELIABLE);
+										}
+									}
+									delete[]raw;
+									npc_->uid = -1;
+									continue;
+								}
+								try {
+									WorldBlock* block_ = &world->blocks[current_x / 32 + (current_y / 32 * 100)];
+									if (items[block_->fg].collisionType == 1 or (current_x / 32) > 100 or (current_x / 32) < 0) {
+										PlayerMoving data_{};
+										data_.packetType = 34;
+										data_.x = (current_x); //nuo x
+										data_.y = (current_y + (npc_->id == 8020 ? 6 : 16)); //nuo y
+										data_.XSpeed = (current_x); // iki x
+										data_.YSpeed = (current_y + (npc_->id == 8020 ? 6 : 16)); // iki y
+										data_.punchY = npc_->projectile_speed;
+										BYTE* raw = packPlayerMoving(&data_);
+										raw[1] = (itemas->fg == 8020 ? 15 : 8);
+										raw[2] = npc_->uid;
+										raw[3] = 7;
+										for (ENetPeer* currentPeer = server->peers; currentPeer < &server->peers[server->peerCount]; ++currentPeer) {
+											if (currentPeer->state != ENET_PEER_STATE_CONNECTED or currentPeer->data == NULL) continue;
+											if (pInfo(currentPeer)->world == world->name and pInfo(currentPeer)->x != -1) {
+												send_raw(currentPeer, 4, raw, 56, ENET_PACKET_FLAG_RELIABLE);
+											}
+										}
+										delete[]raw;
+										npc_->uid = -1;
+									}
+								}
+								catch (out_of_range) {
+									continue;
+								}
+							}
+							break;
+						}
+					}
+				}
+			}
+			for (ENetPeer* currentPeer = server->peers; currentPeer < &server->peers[server->peerCount]; ++currentPeer) {
+				if (currentPeer->state != ENET_PEER_STATE_CONNECTED || currentPeer->data == NULL or pInfo(currentPeer)->tankIDName.empty() or pInfo(currentPeer)->world.empty()) continue;
+				if (pInfo(currentPeer)->hand == 3578 || pInfo(currentPeer)->face == 3576) {
+					if (pInfo(currentPeer)->hand_torch + 60000 < (duration_cast<milliseconds>(system_clock::now().time_since_epoch())).count()) {
+						int got = 0;
+						if (pInfo(currentPeer)->hand == 3578) {
+							if (pInfo(currentPeer)->hand_torch != 0) {
+								visual::modify_inv(currentPeer, 3578, got);
+								if (got - 1 >= 1) {
+									gamepacket_t p;
+									p.Insert("OnTalkBubble"), p.Insert(pInfo(currentPeer)->netID), p.Insert("`4My torch went out, but I have " + to_string(got - 1) + " more!``"), p.Insert(0), p.Insert(0), p.CreatePacket(currentPeer);
+								}
+								visual::modify_inv(currentPeer, 3578, got = -1);
+							}
+						}
+						else if (pInfo(currentPeer)->face == 3576) {
+							visual::modify_inv(currentPeer, 3306, got = -1);
+						}
+						pInfo(currentPeer)->hand_torch = (duration_cast<milliseconds>(system_clock::now().time_since_epoch())).count();
+					}
+				}
+				else if (pInfo(currentPeer)->hand == 2204 or pInfo(currentPeer)->hand == 2558 and pInfo(currentPeer)->x != -1 and pInfo(currentPeer)->y != -1) {
+					if (pInfo(currentPeer)->random_geiger_time < 100) {
+						pInfo(currentPeer)->random_geiger_time++;
+					}
+					else {
+						pInfo(currentPeer)->random_geiger_time = 0;
+						pInfo(currentPeer)->geiger_x = (rand() % 100) * 32;
+						pInfo(currentPeer)->geiger_y = (rand() % 54) * 32;
+					}
+					int hands_ = pInfo(currentPeer)->hand;
+					if (not visual::has_playmod2(pInfo(currentPeer), 10)) {
+						if (pInfo(currentPeer)->geiger_x == -1 and pInfo(currentPeer)->geiger_y == -1) {
+							pInfo(currentPeer)->geiger_x = (rand() % 100) * 32;
+							pInfo(currentPeer)->geiger_y = (rand() % 54) * 32;
+						}
+						int a_ = pInfo(currentPeer)->geiger_x + ((pInfo(currentPeer)->geiger_y * 100) / 32), b_ = pInfo(currentPeer)->x + ((pInfo(currentPeer)->y * 100) / 32), diff = abs(a_ - b_) / 32;
+						if (diff < 30) {
+							int t_ = 1500;
+							if (diff >= 6) t_ = 1350;
+							else if (diff < 15) t_ = 1000;
+							else if (diff <= 1) t_ = 2500;
+							if (pInfo(currentPeer)->geiger_time + t_ < (duration_cast<milliseconds>(system_clock::now().time_since_epoch())).count()) {
+								pInfo(currentPeer)->geiger_time = (duration_cast<milliseconds>(system_clock::now().time_since_epoch())).count();
+								PlayerMoving data_{};
+								data_.packetType = 17, data_.characterState = 0x8, data_.x = pInfo(currentPeer)->x + 10, data_.y = pInfo(currentPeer)->y + 16, data_.XSpeed = (diff >= 30 ? 0 : (diff >= 15 ? 1 : 2)), data_.YSpeed = 114;
+								BYTE* raw = packPlayerMoving(&data_);
+								send_raw(currentPeer, 4, raw, 56, ENET_PACKET_FLAG_RELIABLE);
+								delete[] raw;
+								if (diff <= 1) {
+									pInfo(currentPeer)->geiger_x = -1, pInfo(currentPeer)->geiger_y = -1;
+									int give_back_geiger = items[pInfo(currentPeer)->hand].geiger_give_back;
+									{
+										int c_ = -1;
+										visual::modify_inv(currentPeer, pInfo(currentPeer)->hand, c_);
+										int c_2 = 1;
+										if (visual::modify_inv(currentPeer, give_back_geiger, c_2) != 0) {
+											string name_ = pInfo(currentPeer)->world;
+											vector<World>::iterator p = find_if(worlds.begin(), worlds.end(), [name_](const World& a) { return a.name == name_; });
+											if (p != worlds.end()) {
+												World* world_ = &worlds[p - worlds.begin()];
+												world_->fresh_world = true;
+												WorldDrop drop_block_{};
+												drop_block_.id = give_back_geiger, drop_block_.count = 1, drop_block_.x = pInfo(currentPeer)->x + rand() % 17, drop_block_.y = pInfo(currentPeer)->y + rand() % 17;
+												dropas_(world_, drop_block_);
+											}
+										}
+										int seconds = 1800;
+										if (thedaytoday == 3) seconds = 600;
+										pInfo(currentPeer)->hand = give_back_geiger;
+										visual::update_clothes(currentPeer);
+										visual::add_playmod(currentPeer, 10, seconds);
+										packet_(currentPeer, "action|play_sfx\nfile|audio/dialog_confirm.wav\ndelayMS|0");
+									}
+									if (pInfo(currentPeer)->lwiz_step == 13) {
+										if (pInfo(currentPeer)->lwiz_quest == 5 || pInfo(currentPeer)->lwiz_quest == 6 || pInfo(currentPeer)->lwiz_quest == 7 || pInfo(currentPeer)->lwiz_quest == 8) {
+											add_lwiz_points(currentPeer, 1);
+										}
+									}
+									if (dailyc_name == "Geiger") Daily_Challenge::Add_Points(currentPeer, rand() % 50);
+									if (pInfo(currentPeer)->grow4good_geiger < pInfo(currentPeer)->grow4good_geiger2 && pInfo(currentPeer)->grow4good_geiger != -1) dialog::daily_quest_dialog(currentPeer, false, "geiger", 1);
+									add_event_xp(currentPeer, 1, "geiger");
+									int give_times = 1;
+									if (pInfo(currentPeer)->gp) {
+										if (complete_gpass_task(currentPeer, "Geiger")) give_times++;
+									}
+									for (int i = 0; i < give_times; i++) {
+										int item_ = items[hands_].randomitem[rand() % items[hands_].randomitem.size()], c_ = 1;
+										if (item_ == 1486) if (pInfo(currentPeer)->lwiz_step == 6) add_lwiz_points(currentPeer, 1);
+										if (item_ == 1486 && pInfo(currentPeer)->C_QuestActive && pInfo(currentPeer)->C_QuestKind == 11 && pInfo(currentPeer)->C_QuestProgress < pInfo(currentPeer)->C_ProgressNeeded) {
+											pInfo(currentPeer)->C_QuestProgress += 1;
+											if (pInfo(currentPeer)->C_QuestProgress >= pInfo(currentPeer)->C_ProgressNeeded) {
+												pInfo(currentPeer)->C_QuestProgress = pInfo(currentPeer)->C_ProgressNeeded;
+												gamepacket_t p;
+												p.Insert("OnTalkBubble");
+												p.Insert(pInfo(currentPeer)->netID);
+												p.Insert("`9Ring Quest task complete! Go tell the Ringmaster!");
+												p.Insert(0), p.Insert(0);
+												p.CreatePacket(currentPeer);
+											}
+										}
+										if (visual::modify_inv(currentPeer, item_, c_) != 0) {
+											string name_ = pInfo(currentPeer)->world;
+											vector<World>::iterator p = find_if(worlds.begin(), worlds.end(), [name_](const World& a) { return a.name == name_; });
+											if (p != worlds.end()) {
+												World* world_ = &worlds[p - worlds.begin()];
+												world_->fresh_world = true;
+												WorldDrop drop_block_{};
+												drop_block_.id = item_, drop_block_.count = 1, drop_block_.x = pInfo(currentPeer)->x + rand() % 17, drop_block_.y = pInfo(currentPeer)->y + rand() % 17;
+												dropas_(world_, drop_block_);
+											}
+										}
+										gamepacket_t p;
+										p.Insert("OnTalkBubble");
+										p.Insert(pInfo(currentPeer)->netID);
+										p.Insert("I found `21 " + items[item_].name + "``!" + (hands_ == 2558 ? " But now I lost it in my basket!" : "") + "");
+										p.Insert(0), p.Insert(0);
+										p.CreatePacket(currentPeer);
+										gamepacket_t p2;
+										p2.Insert("OnConsoleMessage");
+										p2.Insert(get_player_nick(currentPeer) + " found `21 " + items[item_].name + "``!");
+										PlayerMoving data_{};
+										data_.packetType = 19, data_.plantingTree = 0, data_.netID = 0;
+										data_.punchX = item_;
+										data_.x = pInfo(currentPeer)->x + 10, data_.y = pInfo(currentPeer)->y + 16;
+										int32_t to_netid = pInfo(currentPeer)->netID;
+										BYTE* raw = packPlayerMoving(&data_);
+										raw[3] = 5;
+										memcpy(raw + 8, &to_netid, 4);
+										for (ENetPeer* currentPeer2 = server->peers; currentPeer2 < &server->peers[server->peerCount]; ++currentPeer2) {
+											if (currentPeer2->state != ENET_PEER_STATE_CONNECTED or currentPeer2->data == NULL) continue;
+											if (pInfo(currentPeer2)->world == pInfo(currentPeer)->world) {
+												send_raw(currentPeer2, 4, raw, 56, ENET_PACKET_FLAG_RELIABLE);
+												p2.CreatePacket(currentPeer2);
+											}
+										}
+										delete[]raw;
+									}
+									gamepacket_t p;
+									p.Insert("OnParticleEffect");
+									p.Insert(48);
+									p.Insert((float)pInfo(currentPeer)->x + 10, (float)pInfo(currentPeer)->y + 16);
+									p.CreatePacket(currentPeer);
+								}
+							}
+						}
+					}
+				}
+				if (pInfo(currentPeer)->cheat_bot_spam and pInfo(currentPeer)->npc_summon) {
+					if (pInfo(currentPeer)->Time_Spawn - time(nullptr) <= 0) {
+						pInfo(currentPeer)->cheat_bot_spam = 0;
+						pInfo(currentPeer)->x_npc = 0, pInfo(currentPeer)->y_npc = 0;
+						pInfo(currentPeer)->npc_world = "";
+						pInfo(currentPeer)->npc_summon = false;
+						for (ENetPeer* cp_ = server->peers; cp_ < &server->peers[server->peerCount]; ++cp_) {
+							if (cp_->state != ENET_PEER_STATE_CONNECTED || cp_->data == NULL) break;
+							if (pInfo(cp_)->world == pInfo(currentPeer)->world) {
+								gamepacket_t p;
+								p.Insert("OnRemove"), p.Insert("netID|" + to_string(pInfo(currentPeer)->npc_netID) + "\n"), p.Insert("pId|-1\n"), p.CreatePacket(cp_);
+							}
+						}
+					}
+					if (duration_cast<seconds>(system_clock::now().time_since_epoch()).count() > pInfo(currentPeer)->Cheat_Last_Spam) {
+						pInfo(currentPeer)->Cheat_Last_Spam = duration_cast<seconds>(system_clock::now().time_since_epoch()).count() + pInfo(currentPeer)->Cheat_Spam_Delay;
+						if (pInfo(currentPeer)->npc_text != "" and pInfo(currentPeer)->npc_summon) {
+							for (ENetPeer* currentPeer2 = server->peers; currentPeer2 < &server->peers[server->peerCount]; ++currentPeer2) {
+								if (currentPeer2->state != ENET_PEER_STATE_CONNECTED or currentPeer2->data == NULL) continue;
+								if (pInfo(currentPeer2)->world == pInfo(currentPeer)->npc_world) {
+									VarList::OnConsoleMessage(currentPeer2, "CP:_PL:0_OID:_CT:[W]_ `6<`w" + pInfo(currentPeer)->npc_name + "`6> " + pInfo(currentPeer)->npc_text + "");
+									VarList::OnTalkBubble(currentPeer2, pInfo(currentPeer)->npc_netID, pInfo(currentPeer)->npc_text, 0, 0);
+								}
+							}
+						}
+					}
+				}
+				if (pInfo(currentPeer)->hider == false && (pInfo(currentPeer)->rb or pInfo(currentPeer)->valentine && pInfo(currentPeer)->name_time + 250 < (duration_cast<milliseconds>(system_clock::now().time_since_epoch())).count())) {
+					if (not Role::Vip(currentPeer)) pInfo(currentPeer)->rb = false;
+					else {
+						pInfo(currentPeer)->name_time = (duration_cast<milliseconds>(system_clock::now().time_since_epoch())).count();
+						string msg2 = "", nick = fixchar4(get_player_nick(currentPeer));
+						if (pInfo(currentPeer)->rb) {
+							if (pInfo(currentPeer)->is_legend && pInfo(currentPeer)->d_name.empty()) msg2 += random_color[rainbow_color] + nick;
+							else {
+								for (int i = 0; i < nick.length(); i++) msg2 += random_color[i + rainbow_color] + nick[i];
+							}
+						}
+						else {
+							vector <string> random_letter{ "4", "p" };
+							if (pInfo(currentPeer)->is_legend && pInfo(currentPeer)->d_name.empty()) msg2 += "`" + random_letter[rand() % random_letter.size()] + nick;
+							else for (int i = 0; i < nick.length(); i++) msg2 += "`" + random_letter[rand() % random_letter.size()] + nick[i];
+						}
+						visual::nick_2(currentPeer, NULL, msg2);
+					}
+				}
+				if (pInfo(currentPeer)->save_time + 300000 < (duration_cast<milliseconds>(system_clock::now().time_since_epoch())).count()) {
+					if (pInfo(currentPeer)->save_time != 0) {
+						pInfo(currentPeer)->opc++;
+						if (pInfo(currentPeer)->pet_ID == 10294) {
+							if (pInfo(currentPeer)->show_pets and pInfo(currentPeer)->pet_level > 39) {
+								pInfo(currentPeer)->opc += 5;
+								VarList::OnTalkBubble(currentPeer, pInfo(currentPeer)->netID, "Received `25`` Opc from [Pet-Ai] ChickenFly");
+							}
+						}
+						if (pInfo(currentPeer)->hand == 10384) pInfo(currentPeer)->opc += 2;
+						if (pInfo(currentPeer)->gp || pInfo(currentPeer)->hand == 10384 || pInfo(currentPeer)->hair == 9542 || pInfo(currentPeer)->hair == 9984 || pInfo(currentPeer)->hair == 9920 || pInfo(currentPeer)->necklace == 9964 || pInfo(currentPeer)->necklace == 10176 || pInfo(currentPeer)->pants == 9782 || pInfo(currentPeer)->hand == 9880 || pInfo(currentPeer)->hand == 10020 || pInfo(currentPeer)->hand == 9974 || pInfo(currentPeer)->hand == 9918 || pInfo(currentPeer)->hand == 10290 || pInfo(currentPeer)->hand == 9916 || pInfo(currentPeer)->hand == 9914 || pInfo(currentPeer)->hand == 9766 || pInfo(currentPeer)->hand == 9772 || pInfo(currentPeer)->hand == 9908) pInfo(currentPeer)->opc++;
+						server_::honors::add(pInfo(currentPeer)->world, pInfo(currentPeer)->world_owner);
+						if (pInfo(currentPeer)->grow4good_30mins < 30) dialog::daily_quest_dialog(currentPeer, false, "30mins", 10);
+						loop_save(currentPeer);
+						server_::top_player::add(to_lower(pInfo(currentPeer)->tankIDName));
+					}
+					pInfo(currentPeer)->save_time = (duration_cast<milliseconds>(system_clock::now().time_since_epoch())).count();
+				}
+				if (pInfo(currentPeer)->World_Timed - time(nullptr) == 60 && pInfo(currentPeer)->WorldTimed && pInfo(currentPeer)->tankIDName != pInfo(currentPeer)->world_owner) {
+					gamepacket_t p;
+					p.Insert("OnTalkBubble"); p.Insert(pInfo(currentPeer)->netID); p.Insert("Your access to this world will expire in less than a minute!"); p.Insert(0); p.Insert(0); p.CreatePacket(currentPeer);
+				}
+				else if (pInfo(currentPeer)->World_Timed - time(nullptr) < 0 && pInfo(currentPeer)->WorldTimed && pInfo(currentPeer)->tankIDName != pInfo(currentPeer)->world_owner) {
+					exit_(currentPeer);
+				}
+				if (pInfo(currentPeer)->fishing_used != 0) {
+					if (pInfo(currentPeer)->last_fish_catch + pInfo(currentPeer)->fish_seconds < (duration_cast<milliseconds>(system_clock::now().time_since_epoch())).count() && rand() % 100 < (pInfo(currentPeer)->hand == 6258 ? 20 : pInfo(currentPeer)->hand == 3010 ? 15 : 10)) {
+						PlayerMoving data_{};
+						data_.packetType = 17, data_.netID = 34, data_.YSpeed = 34, data_.x = pInfo(currentPeer)->f_x * 32 + 16, data_.y = pInfo(currentPeer)->f_y * 32 + 16;
+						pInfo(currentPeer)->last_fish_catch = (duration_cast<milliseconds>(system_clock::now().time_since_epoch())).count();
+						BYTE* raw = packPlayerMoving(&data_);
+						gamepacket_t p3(0, pInfo(currentPeer)->netID);
+						p3.Insert("OnPlayPositioned"), p3.Insert("audio/splash.wav");
+						for (ENetPeer* currentPeer_event = server->peers; currentPeer_event < &server->peers[server->peerCount]; ++currentPeer_event) {
+							if (currentPeer_event->state != ENET_PEER_STATE_CONNECTED or currentPeer_event->data == NULL or pInfo(currentPeer_event)->world != pInfo(currentPeer)->world) continue;
+							send_raw(currentPeer_event, 4, raw, 56, ENET_PACKET_FLAG_RELIABLE), p3.CreatePacket(currentPeer_event);
+						}
+						delete[] raw;
+						if (pInfo(currentPeer)->cheater_settings & Re_Ps::SETTINGS_16 && pInfo(currentPeer)->disable_cheater == 0) {
+							int bait = pInfo(currentPeer)->fishing_used, fx = pInfo(currentPeer)->f_x, fy = pInfo(currentPeer)->f_y;
+							stop_fishing(currentPeer, false, "");
+							player_punch(currentPeer, bait, fx, fy, fx * 32, fy * 32);
+						}
+					}
+				}
+				if (pInfo(currentPeer)->world != "TRADE") {
+					vector<pair<int, string>>::iterator p = find_if(World_Stuff.top_active_worlds.begin(), World_Stuff.top_active_worlds.end(), [&](const pair < int, string>& element) { return element.second == pInfo(currentPeer)->world; });
+					if (p != World_Stuff.top_active_worlds.end()) World_Stuff.top_active_worlds[p - World_Stuff.top_active_worlds.begin()].first++;
+					else World_Stuff.top_active_worlds.push_back(make_pair(1, pInfo(currentPeer)->world));
+				}
+				{
+					if (last_firehouse - ms_time <= 0) {
+						vector<World>::iterator p = find_if(worlds.begin(), worlds.end(), [&](const World& a) { return a.name == pInfo(currentPeer)->world; });
+						if (p != worlds.end()) {
+							World* world = &worlds[p - worlds.begin()];
+							world->fresh_world = true;
+							vector<WorldBlock>::iterator p3 = find_if(world->blocks.begin(), world->blocks.end(), [&](const WorldBlock& a) { return a.fg == 3072; });
+							if (p3 != world->blocks.end()) {
+								vector<WorldBlock>::iterator p2 = find_if(world->blocks.begin(), world->blocks.end(), [&](const WorldBlock& a) { return a.flags & 0x10000000; });
+								if (p2 != world->blocks.end()) {
+									int x_ = int(p2 - world->blocks.begin()) % 100, y_ = int(p2 - world->blocks.begin()) / 100;
+									apply_tile_visual(world, &world->blocks[x_ + (y_ * 100)], x_, y_, 0x10000000, true);
+								}
+							}
+							if (last_fire_time - ms_time <= 0) {
+								if (world->total_fires < 150) {
+									vector<WorldBlock>::iterator p2 = find_if(world->blocks.begin(), world->blocks.end(), [&](const WorldBlock& a) { return a.flags & 0x10000000 && (world->fire_try > 10 ? a.applied_fire == true : a.applied_fire == false); });
+									if (p2 != world->blocks.end()) {
+										int x_ = int(p2 - world->blocks.begin()) % 100, y_ = int(p2 - world->blocks.begin()) / 100;
+										vector<int> random_xy{ 1, 0, -1, 0 };
+										int randomx = 0, randomy = 0;
+										if (rand() % 2 < 1) randomx = x_ + random_xy[rand() % random_xy.size()], randomy = y_;
+										else randomx = x_, randomy = y_ + random_xy[rand() % random_xy.size()];
+										if (randomx > 0 && randomx < world->max_x && randomy > 0 && randomy < world->max_y) {
+											bool has_fire = world->blocks[randomx + (randomy * 100)].flags & 0x10000000, has_water = world->blocks[randomx + (randomy * 100)].flags & 0x04000000;
+											if (world->blocks[randomx + (randomy * 100)].fg != 0 && has_fire == false && has_water == false && items[world->blocks[randomx + (randomy * 100)].fg].blockType != BlockTypes::MAIN_DOOR && items[world->blocks[randomx + (randomy * 100)].fg].blockType != BlockTypes::BEDROCK && world->blocks[randomx + (randomy * 100)].fg != 9570) apply_tile_visual(world, &world->blocks[randomx + (randomy * 100)], randomx, randomy, 0x10000000);
+											else {
+												world->blocks[x_ + (y_ * 100)].fire_try++;
+												if (world->blocks[x_ + (y_ * 100)].fire_try >= 8) world->blocks[x_ + (y_ * 100)].applied_fire = true, world->blocks[x_ + (y_ * 100)].fire_try = 0;
+											}
+										}
+									}
+									else {
+										world->fire_try++;
+										if (world->fire_try > 10) world->fire_try = 0;
+									}
+								}
+							}
+						}
+					}
+				}
+				long long time_ = time(nullptr);
+				for (int i_ = 0; i_ < pInfo(currentPeer)->playmods.size(); i_++) {
+					if (pInfo(currentPeer)->playmods[i_].id == 12) {
+						if (pInfo(currentPeer)->valentine_time + 2500 < (duration_cast<milliseconds>(system_clock::now().time_since_epoch())).count()) {
+							pInfo(currentPeer)->valentine_time = (duration_cast<milliseconds>(system_clock::now().time_since_epoch())).count();
+							for (ENetPeer* valentine = server->peers; valentine < &server->peers[server->peerCount]; ++valentine) {
+								if (valentine->state != ENET_PEER_STATE_CONNECTED or valentine->data == NULL) continue;
+								if (pInfo(valentine)->world == pInfo(currentPeer)->world and pInfo(valentine)->tankIDName == pInfo(currentPeer)->playmods[i_].user) {
+									if (not pInfo(valentine)->invis and not pInfo(currentPeer)->invis and pInfo(currentPeer)->x != -1 and pInfo(currentPeer)->y != -1 and pInfo(valentine)->x != -1 and pInfo(valentine)->y != -1) {
+										gamepacket_t p;
+										p.Insert("OnParticleEffect");
+										p.Insert(13);
+										p.Insert((float)pInfo(valentine)->x + 10, (float)pInfo(valentine)->y + 16);
+										p.Insert((float)0), p.Insert((float)pInfo(currentPeer)->netID);
+										bool double_send = false;
+										for (int i_2 = 0; i_2 < pInfo(valentine)->playmods.size(); i_2++) {
+											if (pInfo(valentine)->playmods[i_2].id == 12 and pInfo(valentine)->playmods[i_2].user == pInfo(currentPeer)->tankIDName) {
+												double_send = true;
+												break;
+											}
+										}
+										gamepacket_t p2;
+										p2.Insert("OnParticleEffect");
+										p2.Insert(13);
+										p2.Insert((float)pInfo(currentPeer)->x + 10, (float)pInfo(currentPeer)->y + 16);
+										p2.Insert((float)0), p2.Insert((float)pInfo(valentine)->netID);
+										for (ENetPeer* valentine_bc = server->peers; valentine_bc < &server->peers[server->peerCount]; ++valentine_bc) {
+											if (valentine_bc->state != ENET_PEER_STATE_CONNECTED or valentine_bc->data == NULL) continue;
+											if (pInfo(valentine_bc)->world == pInfo(currentPeer)->world) {
+												p.CreatePacket(valentine_bc);
+												if (double_send) p2.CreatePacket(valentine_bc);
+											}
+										}
+									}
+									break;
+								}
+							}
+						}
+					}
+					if (pInfo(currentPeer)->playmods[i_].time - time_ < 0) {
+						if (pInfo(currentPeer)->playmods[i_].id == 125) {
+							pInfo(currentPeer)->Role.Moderator = false;
+							if (not pInfo(currentPeer)->d_name.empty()) {
+								pInfo(currentPeer)->d_name = "";
+								visual::nick(currentPeer, NULL);
+							}
+						}
+						else if (pInfo(currentPeer)->playmods[i_].id == 126) pInfo(currentPeer)->Role.Vip = false;
+						else if (pInfo(currentPeer)->playmods[i_].id == 127 || pInfo(currentPeer)->playmods[i_].id == 128) exit_(currentPeer);
+						else if (pInfo(currentPeer)->playmods[i_].id == 136) pInfo(currentPeer)->hit_by = 0;
+						else if (pInfo(currentPeer)->playmods[i_].id == 143) {
+							pInfo(currentPeer)->Role.Cheats = false;
+							pInfo(currentPeer)->cheater_settings = 0;
+							pInfo(currentPeer)->chat_prefix.clear();
+							autofarm_status(currentPeer);
+						}
+						packet_(currentPeer, "action|play_sfx\nfile|audio/dialog_confirm.wav\ndelayMS|0");
+						gamepacket_t p;
+						p.Insert("OnConsoleMessage");
+						p.Insert(info_about_playmods[pInfo(currentPeer)->playmods[i_].id - 1][5] + " (`$" + info_about_playmods[pInfo(currentPeer)->playmods[i_].id - 1][3] + "`` mod removed)");
+						p.CreatePacket(currentPeer);
+						pInfo(currentPeer)->playmods.erase(pInfo(currentPeer)->playmods.begin() + i_);
+						visual::update_clothes_value(currentPeer);
+						visual::update_clothes(currentPeer);
+						break;
+					}
+				}
+			}
+			if (last_time - ms_time <= 0) last_time = ms_time + 1450;
+			if (last_firehouse - ms_time <= 0) last_firehouse = ms_time + 2000000;
+			if (last_fire_time - ms_time <= 0)last_fire_time = ms_time + 2000000;
+		}
+	}
+}
+void Detected() {
+	while (running) {
+		std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+		std::lock_guard<std::mutex> lock(mtx);
+		loop_worlds();
+	}
+}
+
+void initializeMint() {
+    if (geteuid() != 0) {
+        std::cerr << "[ERROR] This program must be run as root or with sudo.\n";
+        std::cerr << "Run with: sudo ./MintServer\n";
+        exit(EXIT_FAILURE);
+    }
+
+    std::cout << "\033[1;32m" << R"(
+       				 __  __   _           _     _
+       				|  \/  | (_)  _ __   | |_  (_)   ___   ___
+       				| |\/| | | | | '_ \  | __| | |  / _ \ / __|
+       				| |  | | | | | | | | | |_  | | |  __/ \__ \
+       				|_|  |_| |_| |_| |_|  \__| |_|  \___| |___/
+    )" << "\033[0m" << std::endl;
+
+    Logger::Info("INFO", "MintPS");
+    Logger::Info("INFO", "Remaked by ocalith and converting all to Linux");
+    Logger::Info("INFO", "Trying to initialize server...");
+
+    int port = 47123;
+    server_port = port;
+
+    std::string openCmd = "sudo ufw allow " + std::to_string(port) + "/udp > /dev/null 2>&1";
+    std::system(openCmd.c_str());
+
+    if (init_enet(port) == -1)
+        Logger::Info("[ERROR]", "Failed to create ENet server host.");
+    else
+        Logger::Info("INFO", "Server started on port: " + std::to_string(port) + " (UDP)");
+
+    if (items_dat() == -1)
+        Logger::Info("[ERROR]", "No items.dat found!");
+    else
+        Logger::Info("INFO", "Loaded Items.dat | Version: Unknown | Hash: " + std::to_string(item_hash) + " | Total Items: " + setGems(items.size()));
 }

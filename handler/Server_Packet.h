@@ -360,8 +360,8 @@ public:
 		gamepacket_t p;
 		p.Insert("OnSuperMainStartAcceptLogonHrdxs47254722215a");
 		p.Insert(item_hash);
-		p.Insert("www.growtopia1.com");
-		p.Insert("cache/");
+		p.Insert("cdn1.silvariarp.tech");
+		p.Insert("/");
 		p.Insert("cc.cz.madkite.freedom org.aqua.gg idv.aqua.bulldog com.cih.gamecih2 com.cih.gamecih com.cih.game_cih cn.maocai.gamekiller com.gmd.speedtime org.dax.attack com.x0.strai.frep com.x0.strai.free org.cheatengine.cegui org.sbtools.gamehack com.skgames.traffikrider org.sbtoods.gamehaca com.skype.ralder org.cheatengine.cegui.xx.multi1458919170111 com.prohiro.macro me.autotouch.autotouch com.cygery.repetitouch.free com.cygery.repetitouch.pro com.proziro.zacro com.slash.gamebuster");
 		p.Insert("proto=211|choosemusic=audio/ogg/theme_lobby.ogg|active_holiday=0|wing_week_day=0|ubi_week_day=0|server_tick=23802433|clash_active=1|drop_lavacheck_faster=1|isPayingUser=" + a + (pInfo(peer)->supp == 1 ? "1" : pInfo(peer)->supp == 2 ? "2" : "0") + "|usingStoreNavigation=1|enableInventoryTab=1|bigBackpack=1|m_clientBits=1024|eventButtons={\"EventButtonData\":["
 			"{\"active\":true,\"buttonAction\":\"dailychallengemenu\",\"buttonTemplate\":\"BaseEventButton\",\"counter\":0,\"counterMax\":0,\"itemIdIcon\":23,\"name\":\"DailyChallenge\",\"order\":0,\"rcssClass\":\"daily_challenge\",\"text\":\"\"},"
@@ -375,6 +375,14 @@ public:
 		pInfo(peer)->bypass = true;
 		Logger::Info("INFO", pInfo(peer)->tankIDName + " HAS TRIGGERED ON SUPER MAIN AND VALUE BYPASS > TRUE");
 	}
+
+	static void OnSendToServer(ENetPeer* peer, int userID, int token, string ip, int port, string doorId, int lmode)
+	{
+		gamepacket_t p;
+		p.Insert("OnSendToServer"), p.Insert(port), p.Insert(token), p.Insert(userID), p.Insert(ip + "|" + doorId), p.Insert(lmode);
+		p.CreatePacket(peer);
+	}
+	
 	static void OnEventButtonDataSet(ENetPeer* peer, string a, int c, string btn) {
 		gamepacket_t p;
 		p.Insert("OnEventButtonDataSet");

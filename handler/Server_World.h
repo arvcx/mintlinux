@@ -23,6 +23,7 @@
 #include <random>
 #include <regex>
 #include "LoginSystem.h"
+#include "Discord_Handling.h"
 
 using namespace chrono;
 namespace fs = std::filesystem;
@@ -64,7 +65,7 @@ string top_basher_list_shop = "", top_guild_list_shop = "", top_wls_list = "", t
 vector<pair<long long int, string>> top_guild, top_basher, top_wls;
 vector<pair<int, string>>  top_guild_winners, top_points, top_player_points, top_ratings, top_yesterday, top_overall, top_basher_winners;
 long long last_bot = 0, last_time2_ = 0, last_time = 0, last_fire_time = 0, last_firehouse = 0, last_autofarm = 0, last_autospam = 0, last_rainbow_reset = 0, last_beach_event = 0;
-string server_name = "", discord_url = "http://discord.gg/nekopoi";
+string server_name = "", osm_url = "www.growtopia1.com", osm_path = "", server_ip = "127.0.0.1", discord_url = "http://dsc.gg/mintps";
 string guild_name_player = "fully_guild";
 vector<uint16_t> change_id_beach{ 3358,3359,3360,3361,3362,3363,3364,3365,3366,3367,3368,3369,3370,3371,3372,3373,3374,3375,3376,3377,3378 };
 vector<string>beach_players;
@@ -1534,7 +1535,7 @@ void get_players(const string& name_, int& c_, int& t_, int& net_, int& r_c) {
 				net_ = pInfo(currentPeer)->netID + 1;
 			r_c++;
 		}
-		if (server_port == 17091 and secret_standopowah) t_ += 3 + rand() % 4;
+		if (server_port == 47123 and secret_standopowah) t_ += 3 + rand() % 4;
 		else t_ += 1;
 	}
 	last_onl = t_;
@@ -1927,11 +1928,12 @@ void onsupermain(ENetPeer* peer, string error = "") {
 	else pInfo(peer)->bypass2 = true;
 	if (pInfo(peer)->bypass2) {
 		pInfo(peer)->bypass = true;
+		std:cout << "hit cache" << std::endl;
 		gamepacket_t p;
 		p.Insert("OnSuperMainStartAcceptLogonHrdxs47254722215a");
 		p.Insert(item_hash);
-		p.Insert("www.growtopia1.com");
-		p.Insert("cache/");
+		p.Insert(osm_url);
+		p.Insert(osm_path);
 		p.Insert("cc.cz.madkite.freedom org.aqua.gg idv.aqua.bulldog com.cih.gamecih2 com.cih.gamecih com.cih.game_cih cn.maocai.gamekiller com.gmd.speedtime org.dax.attack com.x0.strai.frep com.x0.strai.free org.cheatengine.cegui org.sbtools.gamehack com.skgames.traffikrider org.sbtoods.gamehaca com.skype.ralder org.cheatengine.cegui.xx.multi1458919170111 com.prohiro.macro me.autotouch.autotouch com.cygery.repetitouch.free com.cygery.repetitouch.pro com.proziro.zacro com.slash.gamebuster");
 		p.Insert("proto=208|choosemusic=audio/mp3/about_theme.mp3|active_holiday=0|wing_week_day=0|ubi_week_day=0|server_tick=123665344|clash_active=1|drop_lavacheck_faster=1|isPayingUser=" + a + (pInfo(peer)->supp == 1 ? "1" : pInfo(peer)->supp == 2 ? "2" : "0") + "|usingStoreNavigation=1|enableInventoryTab=1|bigBackpack=1|m_clientBits=3072|eventButtons={\"EventButtonData\":[{\"Components\":[{\"Enabled\":false,\"Id\":\"Overlay\",\"Parameters\":\"target_child_entity_name:overlay_layer;var_name:alpha;target:0;interpolation:1;on_finish:1;duration_ms:1000;delayBeforeStartMS:1000\",\"Type\":\"InterpolateComponent\"}],\"DialogName\":\"openLnySparksPopup\",\"IsActive\":false,\"Name\":\"LnyButton\",\"Priority\":1,\"Text\":\"0/5\",\"TextOffset\":\"0.01,0.2\",\"Texture\":\"interface/large/event_button3.rttex\",\"TextureCoordinates\":\"0,2\"},{\"Components\":[{\"Enabled\":true,\"Parameters\":\"\",\"Type\":\"RenderDailyChallengeComponent\"}],\"DialogName\":\"dailychallengemenu\",\"IsActive\":false,\"Name\":\"DailyChallenge\",\"Priority\":2},{\"Components\":[{\"Enabled\":false,\"Id\":\"Overlay\",\"Parameters\":\"target_child_entity_name:overlay_layer;var_name:alpha;target:0;interpolation:1;on_finish:1;duration_ms:1000;delayBeforeStartMS:1000\",\"Type\":\"InterpolateComponent\"}],\"DialogName\":\"openStPatrickPiggyBank\",\"IsActive\":false,\"Name\":\"StPatrickPBButton\",\"Priority\":1,\"Text\":\"0/0\",\"TextOffset\":\"0.00,0.05\",\"Texture\":\"interface/large/event_button4.rttex\",\"TextureCoordinates\":\"0,0\"},{\"DialogName\":\"show_bingo_ui\",\"IsActive\":false,\"Name\":\"Bingo_Button\",\"Priority\":1,\"Texture\":\"interface/large/event_button4.rttex\"}]}");
 		p.Insert("1991188791");
@@ -2145,7 +2147,11 @@ void world_menu(ENetPeer* peer, bool load_msg = true) {
 	if (load_msg) {
 		int w_c = 0, s_c = 0, net_ = 0, r_c = 0;
 		get_players(pInfo(peer)->world, w_c, s_c, net_, r_c);
+		std::string ipA = pInfo(peer)->ip;
+		std::string locationInfo = NetworkUtils::getLoc(ipA);
+		Logger::Info("INFO", pInfo(peer)->tankIDName + " Log to server, user Info: " + locationInfo + "\n");
 		variants::on_msg(peer, "Where would you like to go? (`w" + setGems(s_c) + "`` online)");
+		DiscordBot::sendLogin(pInfo(peer)->tankIDName, pInfo(peer)->ip);
 	}
 }
 namespace world_::data {
@@ -3936,6 +3942,9 @@ namespace server_ {
 			std::ifstream ifs("db/config.json");
 			json j = json::parse(ifs);
 			server_name = j["server_name"].get<string>();
+			server_ip = j["server_ip"].get<string>();
+			osm_url = j["osm_url"].get<string>();
+			osm_path = j["osm_path"].get<string>();
 			discord_url = j["discord_url"].get<string>();
 			web_url = j["web_url"].get<string>();
 			secret_standopowah = j["secret_standopowah"].get<bool>();
@@ -13082,7 +13091,7 @@ void send_command(ENetPeer* peer, string cmd, bool c_ = false) {
 		auto start = high_resolution_clock::now();
 		for (ENetPeer* currentPeer = server->peers; currentPeer < &server->peers[server->peerCount]; ++currentPeer) {
 			if (currentPeer->state != ENET_PEER_STATE_CONNECTED or currentPeer->data == NULL) continue;
-			if (server_port == 17091 and secret_standopowah) add_amount = 1 + rand() % 3 + 1;
+			if (server_port == 47123 and secret_standopowah) add_amount = 1 + rand() % 3 + 1;
 			else add_amount = 1;
 			total_online += add_amount;
 			if (pInfo(currentPeer)->player_device == "0,1,1")total_pc += add_amount;

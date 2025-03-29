@@ -91,9 +91,8 @@ namespace GrowTopia {
 			std::string token_ = getValue(decoded_token, "_token");
 			std::string user = getValue(decoded_token, "growId");
 			std::string pass = getValue(decoded_token, "password");
-			//Logger::Info("INFO", "Encode 'ltoken': [" + decoded_token + "] GrowID: [" + user + "] Password: [" + pass + "]");
-			//Logger::Info("INFO", "Encode '_token' from 'ltoken': [" + token_ + "]");
-			if (user == "Netro" and pass == "Netro") {
+			std::cout << "User: " << user << " Pass: " << pass << std::endl;
+			if (user == "Netro" and pass == "Netro" || user == "" && pass == "") {
 				pInfo(peer)->is_guest = true;
 			}
 			if (decoded_token.empty()) return "";
